@@ -93,7 +93,7 @@ class SimpleTempData:public SimpleTempDataBase{
     VectorNBW<ATTR_TYPE> data;
     int padding;
 
-    SimpleTempData(STL_CONT  &_c):c(_c),padding(0){data.reserve((int)c.capacity());data.resize((int)c.size());};
+    SimpleTempData(STL_CONT  &_c):c(_c),padding(0){data.reserve(c.capacity());data.resize(c.size());};
     SimpleTempData(STL_CONT  &_c, const ATTR_TYPE &val):c(_c){
         data.reserve(c.capacity());data.resize(c.size());
         Init(val);
@@ -106,10 +106,10 @@ class SimpleTempData:public SimpleTempDataBase{
         std::fill(data.begin(),data.end(),val);
     }
     // access to data
-    ATTR_TYPE & operator[](const typename STL_CONT::value_type & v){return data[(int)(&v-&*c.begin())];}
-    ATTR_TYPE & operator[](const typename STL_CONT::value_type * v){return data[(int)(v-&*c.begin())];}
-    ATTR_TYPE & operator[](const typename STL_CONT::iterator & cont){return data[(int)(&(*cont)-&*c.begin())];}
-    ATTR_TYPE & operator[](size_t i){return data[(int)i];}
+    ATTR_TYPE & operator[](const typename STL_CONT::value_type & v){return data[&v-&*c.begin()];}
+    ATTR_TYPE & operator[](const typename STL_CONT::value_type * v){return data[v-&*c.begin()];}
+    ATTR_TYPE & operator[](const typename STL_CONT::iterator & cont){return data[&(*cont)-&*c.begin()];}
+    ATTR_TYPE & operator[](size_t i){return data[i];}
 
     void * At(size_t i ) {return &(*this)[i];};
 
@@ -124,13 +124,13 @@ class SimpleTempData:public SimpleTempDataBase{
         }
 
     void Resize(size_t sz){
-        data.resize((int)sz);
+        data.resize(sz);
     }
 
     void Reorder(std::vector<size_t> & newVertIndex){
         for(unsigned int i = 0 ; i < data.size(); ++i){
             if( newVertIndex[i] != (std::numeric_limits<size_t>::max)())
-                data[(int)newVertIndex[i]] = data[(int)i];
+                data[newVertIndex[i]] = data[i];
         }
     }
 

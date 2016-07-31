@@ -141,7 +141,6 @@ namespace vcg {
     {
         typedef SCALAR_TYPE														ScalarType;
         typedef typename vcg::Point3< ScalarType >		Point3t;
-        typedef TRIANGLETYPE Triangle3t;
 
         bool penetration_detected = false;
 
@@ -378,7 +377,7 @@ bool IntersectionLineTriangle( const Line3<T> & line, const Point3<T> & vert0,
 
    /* calculate distance from vert0 to line origin */
    tvec = line.Origin() - vert0;
-   inv_det = T(1) / det;
+   inv_det = 1.0 / det;
 
    qvec = tvec ^ edge1;
 

@@ -99,6 +99,49 @@ public:
     return minmax;
   }
 
+  static std::pair<ScalarType,ScalarType> ComputePerEdgeQualityMinMax( MeshType & m)
+  {
+    tri::RequirePerEdgeQuality(m);
+    std::pair<ScalarType,ScalarType> minmax = std::make_pair(std::numeric_limits<ScalarType>::max(),-std::numeric_limits<ScalarType>::max());
+
+    EdgeIterator ei;
+    for(ei = m.edge.begin(); ei != m.edge.end(); ++ei)
+      if(!(*ei).IsD())
+      {
+        if( (*ei).Q() < minmax.first)  minmax.first =(*ei).Q();
+        if( (*ei).Q() > minmax.second) minmax.second=(*ei).Q();
+      }
+    return minmax;
+  }
+
+  /**
+  \short compute the pointcloud barycenter.
+  E.g. it assume each vertex has a mass. If useQualityAsWeight is true, vertex quality is the mass of the vertices
+  */
+  static Point3<ScalarType> ComputeCloudBarycenter(MeshType & m, bool useQualityAsWeight=false)
+  {
+	  if (useQualityAsWeight)
+		tri::RequirePerVertexQuality(m);
+
+	  Point3<ScalarType> barycenter(0, 0, 0);
+	  Point3d accumulator(0.0, 0.0, 0.0);
+	  double weightSum = 0;
+	  VertexIterator vi;
+	  for (vi = m.vert.begin(); vi != m.vert.end(); ++vi)
+	  if (!(*vi).IsD())
+	  {
+		  ScalarType weight = useQualityAsWeight ? (*vi).Q() : 1.0;
+		  accumulator[0] += (double)((*vi).P()[0] * weight);
+		  accumulator[1] += (double)((*vi).P()[1] * weight);
+		  accumulator[2] += (double)((*vi).P()[2] * weight);
+		  weightSum += weight;
+	  }
+	  barycenter[0] = (ScalarType)(accumulator[0] / weightSum);
+	  barycenter[1] = (ScalarType)(accumulator[1] / weightSum);
+	  barycenter[2] = (ScalarType)(accumulator[2] / weightSum);
+	  return barycenter;
+  }
+
   /**
     \short compute the barycenter of the surface thin-shell.
     E.g. it assume a 'empty' model where all the mass is located on the surface and compute the barycenter of that thinshell.
@@ -143,7 +186,8 @@ public:
       }
   }
 
-  static void ComputePerFaceQualityDistribution( MeshType & m, Distribution<float> &h, bool selectionOnly = false)    // V1.0
+  static void ComputePerFaceQualityDistribution( MeshType & m,  Distribution<typename MeshType::ScalarType> &h,
+                                                 bool selectionOnly = false)    // V1.0
   {
     tri::RequirePerFaceQuality(m);
     for(FaceIterator fi = m.face.begin(); fi != m.face.end(); ++fi)

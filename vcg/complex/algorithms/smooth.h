@@ -189,7 +189,7 @@ static void VertexCoordScaleDependentLaplacian_Fujiwara(MeshType &m, int step, S
 class LaplacianInfo
 {
 public:
-    LaplacianInfo(const CoordType &_p, const int _n):sum(_p),cnt((float)_n) {}
+    LaplacianInfo(const CoordType &_p, const int _n):sum(_p),cnt(_n) {}
     LaplacianInfo() {}
     CoordType sum;
     ScalarType cnt;
@@ -218,7 +218,7 @@ static void AccumulateLaplacianInfo(MeshType &m, SimpleTempData<typename MeshTyp
                         {
                           if(cotangentFlag) {
                             float angle = Angle(fi->P1(j)-fi->P2(j),fi->P0(j)-fi->P2(j));
-                            weight = (float)tan(M_PI*0.5 - angle);
+                            weight = tan((M_PI*0.5) - angle);
                           }
 
                             TD[(*fi).V0(j)].sum+=(*fi).P1(j)*weight;

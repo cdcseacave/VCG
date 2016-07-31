@@ -81,6 +81,63 @@ public:
         return true;
     }
 
+    static bool LoadNDF(MeshType &mesh,
+                       const char *path)
+    {
+        FILE *f = fopen(path,"rt");
+        if (!f)
+        {
+            fflush(stdout);
+            return false;
+        }
+
+        char skipstr[200];
+        //int readed0;
+        do{
+
+            fscanf(f,"%s\n",&skipstr[0]);
+            printf("%s\n",skipstr);
+        }while(strcmp(skipstr,"[Pjumps]")!=0);
+
+//        fscanf(f,"%s\"",skipstr);
+//        printf("%s\n",skipstr);
+        fseek(f, 7, SEEK_CUR);
+        char final[1];
+        do{
+            int period;
+            fscanf(f,"%d;",&period);
+            printf("%d\n",period);
+            fscanf(f,"%c",&final);
+            fseek(f, -1, SEEK_CUR);
+            printf("%s\n",&final[0]);
+        }while(strcmp(final,"\"")!=0);
+
+//        printf("%s\n",skipstr);
+        fflush(stdout);
+//        for (int i=0;i<mesh.fn;i++)
+//        {
+//            int i0=-1;
+//            int i1=-1;
+//            int i2=-1;
+//            double u0,v0,u1,v1,u2,v2;
+//            int readed1=fscanf(f,"%d %d %d %lf %lf %lf %lf %lf %lf",&i0,&i1,&i2,&u0,&v0,&u1,&v1,&u2,&v2);
+//            assert(readed1==9);
+//            vcg::Point2<ScalarType> UV[3];
+//            UV[0]= vcg::Point2<ScalarType>(u0,v0);
+//            UV[1]= vcg::Point2<ScalarType>(u1,v1);
+//            UV[2]= vcg::Point2<ScalarType>(u2,v2);
+//            CoordType dir1;
+//            CoordType dir2;
+//            vcg::tri::CrossField<MeshType>::GradientToCross(mesh.face[i],UV[0],UV[1],UV[2],dir1,dir2);
+//            dir1.Normalize();
+//            dir2.Normalize();
+//            mesh.face[i].PD1()=dir1;
+//            mesh.face[i].PD2()=dir2;
+//        }
+//        fclose(f);
+//        return true;
+    }
+
     ///load a field on the mesh, it could be a vfield file (per vertex)
     ///or an ffield file (per face)
     static bool LoadFFIELD(MeshType &mesh,
@@ -257,6 +314,26 @@ public:
         return true;
     }
 
+
+    //Load a 4 rosy format file as pair of angles
+    static bool Load2AngleFace(MeshType &mesh,
+                              const char *path)
+    {
+        FILE *f = fopen(path,"rt");
+        if (f==NULL)return false;
+        int num;
+        fscanf(f,"#%d param_field\n",&num);
+        if (num!=mesh.face.size())return false;
+        for (unsigned int i=0;i<mesh.face.size();i++)
+        {
+            float alpha1,alpha2;
+            int index;
+            fscanf(f,"%d %f %f \n",&index,&alpha1,&alpha2);
+            vcg::tri::CrossField<MeshType>::AnglesToCrossField(mesh.face[i],(ScalarType)alpha1,(ScalarType)alpha2,1);
+        }
+        fclose(f);
+        return true;
+    }
 
 }; // end class
 

@@ -75,6 +75,7 @@ public:
 
   void start(MeshType &m, FacePointer p)
   {
+    tri::RequirePerFaceMark(m);
     mp=&m;
     while(!sf.empty()) sf.pop();
     UnMarkAll(m);
@@ -204,12 +205,11 @@ public:
     return deleted;
   }
 
-  template <typename TYPE>
   class SortedPair
   {
   public:
     SortedPair() {}
-    SortedPair(TYPE v0, TYPE v1, EdgePointer _fp)
+    SortedPair(unsigned int v0, unsigned int v1, EdgePointer _fp)
     {
       v[0]=v0;v[1]=v1;
       fp=_fp;
@@ -226,15 +226,14 @@ public:
       return false;
     }
 
-    TYPE v[2];
+    unsigned int v[2];
     EdgePointer fp;
   };
-  template <typename TYPE>
   class SortedTriple
   {
   public:
     SortedTriple() {}
-    SortedTriple(TYPE v0, TYPE v1, TYPE v2, FacePointer _fp)
+    SortedTriple(unsigned int v0, unsigned int v1, unsigned int v2,FacePointer _fp)
     {
       v[0]=v0;v[1]=v1;v[2]=v2;
       fp=_fp;
@@ -252,7 +251,7 @@ public:
       return false;
     }
 
-    TYPE v[3];
+    unsigned int v[3];
     FacePointer fp;
   };
 
@@ -264,11 +263,11 @@ public:
      */
   static int RemoveDuplicateFace( MeshType & m)    // V1.0
   {
-    std::vector< SortedTriple<size_t> > fvec;
+    std::vector<SortedTriple> fvec;
     for(FaceIterator fi=m.face.begin();fi!=m.face.end();++fi)
       if(!(*fi).IsD())
       {
-        fvec.push_back(SortedTriple<size_t>(tri::Index(m,(*fi).V(0)),
+        fvec.push_back(SortedTriple(    tri::Index(m,(*fi).V(0)),
                                         tri::Index(m,(*fi).V(1)),
                                         tri::Index(m,(*fi).V(2)),
                                         &*fi));
@@ -295,11 +294,11 @@ public:
   static int RemoveDuplicateEdge( MeshType & m)    // V1.0
   {
     if (m.en==0) return 0;
-    std::vector< SortedPair<size_t> > eVec;
+    std::vector<SortedPair> eVec;
     for(EdgeIterator ei=m.edge.begin();ei!=m.edge.end();++ei)
       if(!(*ei).IsD())
       {
-        eVec.push_back(SortedPair<size_t>(	tri::Index(m,(*ei).V(0)), tri::Index(m,(*ei).V(1)), &*ei));
+        eVec.push_back(SortedPair(	tri::Index(m,(*ei).V(0)), tri::Index(m,(*ei).V(1)), &*ei));
       }
     assert (size_t(m.en) == eVec.size());
     //for(int i=0;i<fvec.size();++i) qDebug("fvec[%i] = (%i %i %i)(%i)",i,fvec[i].v[0],fvec[i].v[1],fvec[i].v[2],tri::Index(m,fvec[i].fp));
@@ -568,12 +567,12 @@ public:
         ff.first->V(ff.second)=&*firstVp;
         delta+=Barycenter(*(ff.first))-np->cP();
       }
-      delta /= (float)ToSplitVec[i].second.size();
+      delta /= ToSplitVec[i].second.size();
       firstVp->P() = firstVp->P() + delta * moveThreshold;
       firstVp++;
     }
 
-    return (int)ToSplitVec.size();
+    return ToSplitVec.size();
   }
 
 
@@ -1694,8 +1693,7 @@ public:
     tri::Allocator<MeshType>::CompactVertexVector(m);
     typedef vcg::SpatialHashTable<VertexType, ScalarType> SampleSHT;
     SampleSHT sht;
-    tri::VertTmark<MeshType> markerFunctor;
-    typedef vcg::vertex::PointDistanceFunctor<ScalarType> VDistFunct;
+    tri::EmptyTMark<MeshType> markerFunctor;
     std::vector<VertexType*> closests;
     int mergedCnt=0;
     sht.Set(m.vert.begin(), m.vert.end());
@@ -1812,63 +1810,63 @@ public:
 
 
   /**
-	Select the folded faces using an angle threshold on the face normal.
-	The face is selected if the dot product between the face normal and the normal of the plane fitted
-	using the vertices of the one ring faces is below the cosThreshold. 
-	The cosThreshold requires a negative cosine value (a positive value is clamp to zero). 
+  Select the folded faces using an angle threshold on the face normal.
+  The face is selected if the dot product between the face normal and the normal of the plane fitted
+  using the vertices of the one ring faces is below the cosThreshold.
+  The cosThreshold requires a negative cosine value (a positive value is clamp to zero).
   */
   static void SelectFoldedFaceFromOneRingFaces(MeshType &m, ScalarType cosThreshold)
   {
-	  tri::RequireVFAdjacency(m);
-	  tri::RequirePerFaceNormal(m);
-	  tri::RequirePerVertexNormal(m);
-	  vcg::tri::UpdateSelection<MeshType>::FaceClear(m);
-	  vcg::tri::UpdateNormal<MeshType>::PerFaceNormalized(m);
-	  vcg::tri::UpdateNormal<MeshType>::PerVertexNormalized(m);
-	  vcg::tri::UpdateTopology<MeshType>::VertexFace(m);
-	  if (cosThreshold > 0)
-		  cosThreshold = 0;
+    tri::RequireVFAdjacency(m);
+    tri::RequirePerFaceNormal(m);
+    tri::RequirePerVertexNormal(m);
+    vcg::tri::UpdateSelection<MeshType>::FaceClear(m);
+    vcg::tri::UpdateNormal<MeshType>::PerFaceNormalized(m);
+    vcg::tri::UpdateNormal<MeshType>::PerVertexNormalized(m);
+    vcg::tri::UpdateTopology<MeshType>::VertexFace(m);
+    if (cosThreshold > 0)
+      cosThreshold = 0;
 
 #pragma omp parallel for schedule(dynamic, 10)
-	  for (int i = 0; i < m.face.size(); i++)
-	  {
-		  std::vector<typename MeshType::VertexPointer> nearVertex;
-		  std::vector<typename MeshType::CoordType> point;
-		  typename MeshType::FacePointer f = &m.face[i];
-		  for (int j = 0; j < 3; j++)
-		  {
-			  std::vector<typename MeshType::VertexPointer> temp;
-			  vcg::face::VVStarVF<typename MeshType::FaceType>(f->V(j), temp);
+    for (int i = 0; i < m.face.size(); i++)
+    {
+      std::vector<typename MeshType::VertexPointer> nearVertex;
+      std::vector<typename MeshType::CoordType> point;
+      typename MeshType::FacePointer f = &m.face[i];
+      for (int j = 0; j < 3; j++)
+      {
+        std::vector<typename MeshType::VertexPointer> temp;
+        vcg::face::VVStarVF<typename MeshType::FaceType>(f->V(j), temp);
               typename std::vector<typename MeshType::VertexPointer>::iterator iter = temp.begin();
-			  for (; iter != temp.end(); iter++)
-			  {
-				  if ((*iter) != f->V1(j) && (*iter) != f->V2(j))
-				  {
-					  nearVertex.push_back((*iter));
-					  point.push_back((*iter)->P());
-				  }
-			  }
-			  nearVertex.push_back(f->V(j));
-			  point.push_back(f->P(j));
-		  }
+        for (; iter != temp.end(); iter++)
+        {
+          if ((*iter) != f->V1(j) && (*iter) != f->V2(j))
+          {
+            nearVertex.push_back((*iter));
+            point.push_back((*iter)->P());
+          }
+        }
+        nearVertex.push_back(f->V(j));
+        point.push_back(f->P(j));
+      }
 
-		  if (point.size() > 3)
-		  {
-			  vcg::Plane3<typename MeshType::ScalarType> plane;
-			  vcg::FitPlaneToPointSet(point, plane);
-			  float avgDot = 0;
-			  for (int j = 0; j < nearVertex.size(); j++)
-				  avgDot += plane.Direction().dot(nearVertex[j]->N());
-			  avgDot /= nearVertex.size();
-			  typename MeshType::VertexType::NormalType normal;
-			  if (avgDot < 0)
-				  normal = -plane.Direction();
-			  else
-				  normal = plane.Direction();
-			  if (normal.dot(f->N()) < cosThreshold)
-				  f->SetS();
-		  }
-	  }
+      if (point.size() > 3)
+      {
+        vcg::Plane3<typename MeshType::ScalarType> plane;
+        vcg::FitPlaneToPointSet(point, plane);
+        float avgDot = 0;
+        for (int j = 0; j < nearVertex.size(); j++)
+          avgDot += plane.Direction().dot(nearVertex[j]->N());
+        avgDot /= nearVertex.size();
+        typename MeshType::VertexType::NormalType normal;
+        if (avgDot < 0)
+          normal = -plane.Direction();
+        else
+          normal = plane.Direction();
+        if (normal.dot(f->N()) < cosThreshold)
+          f->SetS();
+      }
+    }
   }
 
 }; // end class

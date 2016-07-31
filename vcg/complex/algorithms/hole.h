@@ -106,7 +106,7 @@ public:
   {
     angleRad=Angle(cP(2)-cP(0), cP(1)-cP(0));
     ScalarType flipAngle = n.dot(e0.v->N());
-    if(flipAngle<0)		angleRad = ScalarType(2*M_PI) - angleRad;
+    if(flipAngle<0)		angleRad = (2.0 *(ScalarType)M_PI) - angleRad;
   }
 
   virtual inline bool operator < ( const TrivialEar & c ) const { return quality <  c.quality; }
@@ -208,7 +208,7 @@ public:
 template<class MESH> class MinimumWeightEar : public TrivialEar<MESH>
 {
 public:
-  static float &DiedralWeight() { static float _dw=0.1f; return _dw;}
+  static float &DiedralWeight() { static float _dw=0.1; return _dw;}
   typedef TrivialEar<MESH> TE;
   typename MESH::ScalarType dihedralRad;
   typename MESH::ScalarType aspectRatio;
@@ -531,7 +531,7 @@ template<class EAR>
       for(ith = vinfo.begin(); ith!= vinfo.end(); ++ith)
       {
         indCb++;
-        if(cb) (*cb)(indCb*10/(int)vinfo.size(),"Closing Holes");
+        if(cb) (*cb)(indCb*10/vinfo.size(),"Closing Holes");
         if((*ith).size < maxSizeHole){
           std::vector<FacePointer *> facePtrToBeUpdated;
           holeCnt++;
