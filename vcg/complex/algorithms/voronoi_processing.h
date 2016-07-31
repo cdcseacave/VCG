@@ -1,14 +1,14 @@
 /****************************************************************************
-* MeshLab                                                           o o     *
-* A versatile mesh processing toolbox                             o     o   *
+* VCGLib                                                            o o     *
+* Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2005                                                \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
 * All rights reserved.                                                      *
 *                                                                           *
-* This program is free software; you can redistribute it and/or modify      *
+* This program is free software; you can redistribute it and/or modify      *   
 * it under the terms of the GNU General Public License as published by      *
 * the Free Software Foundation; either version 2 of the License, or         *
 * (at your option) any later version.                                       *
@@ -188,7 +188,22 @@ static void VoronoiColoring(MeshType &m, bool frontierFlag=true)
     GetAreaAndFrontier(m, sources,  regionArea, frontierVec);
     tri::Geodesic<MeshType>::Compute(m,frontierVec);
   }
-  tri::UpdateColor<MeshType>::PerVertexQualityRamp(m);
+  float minQ =  std::numeric_limits<float>::max();
+  float maxQ = -std::numeric_limits<float>::max();
+  
+  for(VertexIterator vi=m.vert.begin();vi!=m.vert.end();++vi)
+    if(sources[*vi])
+    {
+      if( (*vi).Q() < minQ) minQ=(*vi).Q();
+      if( (*vi).Q() > maxQ) maxQ=(*vi).Q();
+    }
+  for(VertexIterator vi=m.vert.begin();vi!=m.vert.end();++vi)
+    if(sources[*vi])
+          (*vi).C().SetColorRamp(minQ,maxQ,(*vi).Q());
+  else 
+      (*vi).C()=Color4b::DarkGray;
+  
+//  tri::UpdateColor<MeshType>::PerVertexQualityRamp(m);
 }
 
 static void VoronoiAreaColoring(MeshType &m,std::vector<VertexType *> &seedVec,
@@ -890,7 +905,7 @@ static void BuildBiasedSeedVec(MeshType &m,
 
   std::vector<VoronoiEdge> edgeVec;
   BuildVoronoiEdgeVec(m,edgeVec);
-  printf("Found %lu edges on a diagram of %lu seeds\n",edgeVec.size(),seedVec.size());
+  printf("Found %i edges on a diagram of %i seeds\n",int(edgeVec.size()),int(seedVec.size()));
 
   std::map<VertexPointer,std::vector<VoronoiEdge *> > SeedToEdgeVecMap;
   std::map< std::pair<VertexPointer,VertexPointer>, VoronoiEdge *> SeedPairToEdgeMap;
@@ -1209,11 +1224,12 @@ static int RestrictedVoronoiRelaxing(MeshType &m, std::vector<CoordType> &seedPo
       area[fi->V(i)]+=a3;
   }
 
-  assert(m.vn > seedPosVec.size()*20);
+  assert(m.vn > (int)seedPosVec.size()*20);
   int i;
   ScalarType perturb = m.bbox.Diag()*vpp.seedPerturbationAmount;
   for(i=0;i<relaxStep;++i)
   {
+    if(cb) cb(i*100/relaxStep,"RestrictedVoronoiRelaxing ");    
     // Kdtree for the seeds must be rebuilt at each step;
     VectorConstDataWrapper<std::vector<CoordType> > vdw(seedPosVec);
     KdTree<ScalarType> seedTree(vdw);
@@ -1318,7 +1334,7 @@ static int VoronoiRelaxing(MeshType &m, std::vector<VertexType *> &seedVec,
     else
       changed = QuadricRelax(m,seedVec,frontierVec, newSeedVec, df,vpp);
 
-    assert(newSeedVec.size() == seedVec.size());
+    //assert(newSeedVec.size() == seedVec.size());
     PruneSeedByRegionArea(newSeedVec,regionArea,vpp);
 
     for(size_t i=0;i<frontierVec.size();++i)
@@ -1354,7 +1370,10 @@ static int VoronoiRelaxing(MeshType &m, std::vector<VertexType *> &seedVec,
 
 
 // Base vertex voronoi coloring algorithm.
-// it assumes VF adjacency. No attempt of computing real geodesic distnace is done. Just a BFS visit starting from the seeds.
+// It assumes VF adjacency. 
+// No attempt of computing real geodesic distnace is done. Just a BFS visit starting from the seeds
+// It leaves in each vertex quality the index of the seed.
+
 static void TopologicalVertexColoring(MeshType &m, std::vector<VertexType *> &seedVec)
 {
   std::queue<VertexPointer> VQ;
@@ -1666,7 +1685,7 @@ static void PreprocessForVoronoi(MeshType &m, float radius, VoronoiProcessingPar
   PreprocessForVoronoi<tri::MidPoint<MeshType> >(m, radius,mid,vpp);
 }
 
-static void RelaxRefineTriangulationSpring(MeshType &m, MeshType &delaMesh, int refineStep=3, int relaxStep=10 )
+static void RelaxRefineTriangulationSpring(MeshType &m, MeshType &delaMesh, int relaxStep=10, int refineStep=3 )
 {
   tri::RequireCompactness(m);
   tri::RequireCompactness(delaMesh);
@@ -1690,7 +1709,7 @@ static void RelaxRefineTriangulationSpring(MeshType &m, MeshType &delaMesh, int 
   PerVertexBoolHandle fixed = tri::Allocator<MeshType>:: template GetPerVertexAttribute<bool> (m,"fixed");
 
   const ScalarType maxDist = m.bbox.Diag()/4.f;
-  for(int kk=0;kk<refineStep;kk++)
+  for(int kk=0;kk<refineStep+1;kk++)
   {
     tri::UpdateTopology<MeshType>::FaceFace(delaMesh);
 
@@ -1704,7 +1723,7 @@ static void RelaxRefineTriangulationSpring(MeshType &m, MeshType &delaMesh, int 
     const float dist_upper_bound=m.bbox.Diag()/10.0;
     float dist;
 
-    for(int k=0;k<relaxStep;k++)
+    for(int k=0;k<relaxStep;k++) 
     {
       std::vector<Point3f> avgForce(delaMesh.vn);
       std::vector<float> avgLenVec(delaMesh.vn,0);

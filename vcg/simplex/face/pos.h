@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004                                                \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -122,6 +122,12 @@ public:
         return	(f!=p.f)?(f<p.f):
                          (z!=p.z)?(z<p.z):
                                   (v<=p.v);
+    }
+
+    /// Operator to order half-edge; it's compare at the first the face pointers, then the index of the edge and finally the vertex pointers
+    inline bool operator < ( PosType const & p) const {
+        if ((*this)==p)return false;
+        return ((*this)<=p);
     }
 
     /// Assignment operator

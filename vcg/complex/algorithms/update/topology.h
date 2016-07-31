@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004                                                \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -27,6 +27,7 @@
 #include <vector>
 #include <vcg/simplex/face/pos.h>
 #include <vcg/simplex/face/topology.h>
+#include <vcg/simplex/edge/topology.h>
 
 namespace vcg {
 namespace tri {
@@ -46,8 +47,9 @@ typedef typename MeshType::ScalarType     ScalarType;
 typedef typename MeshType::VertexType     VertexType;
 typedef typename MeshType::VertexPointer  VertexPointer;
 typedef typename MeshType::VertexIterator VertexIterator;
+typedef typename MeshType::EdgeType       EdgeType;
 typedef typename MeshType::EdgePointer    EdgePointer;
-typedef typename MeshType::EdgeIterator    EdgeIterator;
+typedef typename MeshType::EdgeIterator   EdgeIterator;
 typedef typename MeshType::FaceType       FaceType;
 typedef typename MeshType::FacePointer    FacePointer;
 typedef typename MeshType::FaceIterator   FaceIterator;
@@ -67,6 +69,7 @@ public:
   VertexPointer  v[2];  // the two Vertex pointer are ordered!
   FacePointer    f;     // the face where this edge belong
   int            z;     // index in [0..2] of the edge of the face
+  bool isBorder;
 
   PEdge() {}
   PEdge(FacePointer  pf, const int nz) { this->Set(pf,nz); }
@@ -121,15 +124,25 @@ static void FillEdgeVector(MeshType &m, std::vector<PEdge> &edgeVec, bool includ
           edgeVec.push_back(PEdge(&*fi,j));
 }
 
-static void FillUniqueEdgeVector(MeshType &m, std::vector<PEdge> &edgeVec, bool includeFauxEdge=true)
+static void FillUniqueEdgeVector(MeshType &m, std::vector<PEdge> &edgeVec, bool includeFauxEdge=true, bool computeBorderFlag=false)
 {
     FillEdgeVector(m,edgeVec,includeFauxEdge);
-    sort(edgeVec.begin(), edgeVec.end());		// Lo ordino per vertici
+    sort(edgeVec.begin(), edgeVec.end()); // oredering by vertex
+
+    if (computeBorderFlag) {
+        for (size_t i=0; i<edgeVec.size(); i++)
+            edgeVec[ i ].isBorder = true;
+        for (size_t i=1; i<edgeVec.size(); i++) {
+            if (edgeVec[i]==edgeVec[i-1])
+                edgeVec[i-1].isBorder = edgeVec[i-1].isBorder = false;
+        }
+    }
 
     typename std::vector< PEdge>::iterator newEnd = std::unique(edgeVec.begin(), edgeVec.end());
 
-    edgeVec.resize(newEnd-edgeVec.begin());
+    edgeVec.resize(newEnd-edgeVec.begin()); // redundant! remove?
 }
+
 
 /*! \brief Initialize the edge vector all the edges that can be inferred from current face vector, setting up all the current adjacency relations
  *
@@ -145,7 +158,7 @@ static void AllocateEdge(MeshType &m)
 
   // Compute and add edges
   std::vector<PEdge> Edges;
-  FillUniqueEdgeVector(m,Edges);
+  FillUniqueEdgeVector(m,Edges,true,tri::HasPerEdgeFlags(m) );
   assert(m.edge.empty());
   tri::Allocator<MeshType>::AddEdges(m,Edges.size());
   assert(m.edge.size()==Edges.size());
@@ -157,6 +170,12 @@ static void AllocateEdge(MeshType &m)
     {
       m.edge[i].V(0) = Edges[i].v[0];
       m.edge[i].V(1) = Edges[i].v[1];
+    }
+  }
+
+  if (tri::HasPerEdgeFlags(m)){
+    for(size_t i=0; i< Edges.size(); ++i) {
+        if (Edges[i].isBorder) m.edge[i].SetB(); else m.edge[i].ClearB();
     }
   }
 
@@ -390,8 +409,41 @@ static void FaceFaceFromTexCoord(MeshType &m)
   }
 }
 
-
-
+/// \brief Test correctness of VEtopology
+static void TestVertexEdge(MeshType &m)
+{
+  std::vector<int> numVertex(m.vert.size(),0);
+  
+  tri::RequireVEAdjacency(m);
+  
+  for(EdgeIterator ei=m.edge.begin();ei!=m.edge.end();++ei)
+  {
+      if (!(*ei).IsD())
+      {
+        assert(tri::IsValidPointer(m,ei->V(0)));
+        assert(tri::IsValidPointer(m,ei->V(1)));
+        if(ei->VEp(0)) assert(tri::IsValidPointer(m,ei->VEp(0)));
+        if(ei->VEp(1)) assert(tri::IsValidPointer(m,ei->VEp(1)));
+        numVertex[tri::Index(m,(*ei).V(0))]++;
+        numVertex[tri::Index(m,(*ei).V(1))]++;
+      }
+  }
+  
+  for(VertexIterator vi=m.vert.begin();vi!=m.vert.end();++vi)
+  {
+      if (!vi->IsD())
+      {
+        int cnt =0;
+        int ind = tri::Index(m,*vi);
+        int incidentNum = numVertex[ind];
+        for(edge::VEIterator<EdgeType> vei(&*vi);!vei.End();++vei)
+          cnt++;
+        EdgeType *vep = vi->VEp();
+        assert((incidentNum==0) == (vi->VEp()==0) );
+        assert(cnt==incidentNum);        
+      }
+  }  
+}
 
 
 /// \brief Test correctness of VFtopology
@@ -401,8 +453,7 @@ static void TestVertexFace(MeshType &m)
 
   assert(tri::HasPerVertexVFAdjacency(m));
 
-    FaceIterator fi;
-    for(fi=m.face.begin();fi!=m.face.end();++fi)
+    for(FaceIterator fi=m.face.begin();fi!=m.face.end();++fi)
     {
         if (!(*fi).IsD())
         {
@@ -412,17 +463,15 @@ static void TestVertexFace(MeshType &m)
         }
     }
 
-    VertexIterator vi;
     vcg::face::VFIterator<FaceType> VFi;
 
-    for(vi=m.vert.begin();vi!=m.vert.end();++vi)
+    for(VertexIterator vi=m.vert.begin();vi!=m.vert.end();++vi)
     {
         if (!vi->IsD())
         if(vi->VFp()!=0) // unreferenced vertices MUST have VF == 0;
         {
             int num=0;
-            assert(vi->VFp() >= &*m.face.begin());
-            assert(vi->VFp() <= &m.face.back());
+            assert(tri::IsValidPointer(m, vi->VFp()));
             VFi.f=vi->VFp();
             VFi.z=vi->VFi();
             while (!VFi.End())
@@ -554,20 +603,17 @@ static void VertexEdge(MeshType &m)
 {
   RequireVEAdjacency(m);
 
-  VertexIterator vi;
-  EdgeIterator ei;
-
-  for(vi=m.vert.begin();vi!=m.vert.end();++vi)
+  for(VertexIterator vi=m.vert.begin();vi!=m.vert.end();++vi)
   {
     (*vi).VEp() = 0;
     (*vi).VEi() = 0;
   }
 
-  for(ei=m.edge.begin();ei!=m.edge.end();++ei)
+  for(EdgeIterator ei=m.edge.begin();ei!=m.edge.end();++ei)
   if( ! (*ei).IsD() )
   {
     for(int j=0;j<2;++j)
-    {
+    { assert(tri::IsValidPointer(m,ei->V(j)));
       (*ei).VEp(j) = (*ei).V(j)->VEp();
       (*ei).VEi(j) = (*ei).V(j)->VEi();
       (*ei).V(j)->VEp() = &(*ei);

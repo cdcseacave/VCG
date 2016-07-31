@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004                                                \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -80,6 +80,12 @@ public:
       for(int i = 0; i < 3; i++)
         for(int j = 0; j < 3; j++)
           (*this)[i][j]=m(i,j);
+    }
+
+    static inline const Matrix33 &Identity( )
+    {
+        static Matrix33<S> tmp; tmp.SetIdentity();
+        return tmp;
     }
 
     ///	Number of columns
@@ -499,7 +505,7 @@ Matrix33<S> RotationMatrix(vcg::Point3<S> v0,vcg::Point3<S> v1,bool normalized=t
     {
         typedef typename vcg::Point3<S> CoordType;
         Matrix33<S> rotM;
-        const S epsilon=0.00001;
+        const S epsilon=0.000000001;
         if (!normalized)
         {
             v0.Normalize();

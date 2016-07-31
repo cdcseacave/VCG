@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004                                                \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -184,6 +184,27 @@ public:
               (*vi).C().SetColorRamp(minq,maxq,(*vi).Q());
   }
 
+  
+  /*! \brief This function colores all the faces of a mesh with a hue color shade dependent on the quality.
+
+  If no range of quality is passed it is automatically computed.
+  */
+  static void PerVertexQualityRampParula(MeshType &m, float minq=0, float maxq=0)
+  {
+    RequirePerVertexQuality(m);
+    RequirePerVertexColor(m);
+
+    if(minq==maxq)
+    {
+      std::pair<float,float> minmax = Stat<MeshType>::ComputePerVertexQualityMinMax(m);
+      minq=minmax.first;
+      maxq=minmax.second;
+    }
+    for(VertexIterator vi=m.vert.begin();vi!=m.vert.end();++vi)
+          if(!(*vi).IsD())
+              (*vi).C().SetColorRampParula(minq,maxq,(*vi).Q());
+  }
+  
   /*! \brief This function colores all the faces of a mesh with a hue color shade dependent on the quality.
 
   If no range of quality is passed it is automatically computed.

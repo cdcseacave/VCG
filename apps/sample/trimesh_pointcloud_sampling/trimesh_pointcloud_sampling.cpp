@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004-2012                                           \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -26,7 +26,6 @@
 #include<wrap/io_trimesh/export.h>
 
 #include<vcg/complex/algorithms/point_sampling.h>
-#include<vcg/complex/algorithms/create/platonic.h>
 #include<vcg/complex/algorithms/clustering.h>
 
 using namespace vcg;

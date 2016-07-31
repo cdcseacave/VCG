@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004                                                \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -199,8 +199,7 @@ namespace vcg {
     {
         mNeighborQueue.setMaxSize(k);
         mNeighborQueue.init();
-        mNeighborQueue.insert(0xffffffff, std::numeric_limits<Scalar>::max());
-
+				
         QueryNode mNodeStack[64];
         mNodeStack[0].nodeId = 0;
         mNodeStack[0].sq = 0.f;
@@ -217,9 +216,9 @@ namespace vcg {
             Node& node = mNodes[qnode.nodeId];
 
             //if the distance is less than the top of the max-heap, it could be one of the k-nearest neighbours
-            if (qnode.sq < mNeighborQueue.getTopWeight())
-            {
-                //when we arrive to a lef
+						if (mNeighborQueue.getNofElements() < k || qnode.sq < mNeighborQueue.getTopWeight())
+						{
+                //when we arrive to a leaf
                 if (node.leaf)
                 {
                     --count; //pop of the leaf

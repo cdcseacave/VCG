@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004                                                \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -383,8 +383,9 @@ public:
 
   /// \brief Marks feature edges according to two signed dihedral angles.
   /// Actually it marks as fauxedges all the non feature edges,
-  /// e.g. the edge such that the signed dihedral angle between the normal of two faces sharing it, is between the two given thresholds.
-  /// In this way all the near planar edges are marked as Faux Edges (e.g. edges to be ignored)
+  /// e.g. the edges where the signed dihedral angle between the normal of two incident faces , 
+  /// is between the two given thresholds.
+  /// In this way all the edges that are almost planar are marked as Faux Edges (e.g. edges to be ignored)
   /// Note that it uses the signed dihedral angle convention (negative for concave edges and positive for convex ones);
   ///
   /// Optionally it can also mark as feature edges also the boundary edges.

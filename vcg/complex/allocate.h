@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004-2014                                           \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -50,6 +50,15 @@ template<class MeshType>
 size_t Index(MeshType &m, const typename MeshType::EdgeType*  e) {return e-&*m.edge.begin();}
 template<class MeshType>
 size_t Index(MeshType &m, const typename MeshType::HEdgeType*  h) {return h-&*m.hedge.begin();}
+
+template<class MeshType>
+bool IsValidPointer( MeshType & m, const typename MeshType::VertexType *vp) { return ( (vp >= &*m.vert.begin()) && ( vp < &*m.vert.end()) ); }
+template<class MeshType>
+bool IsValidPointer( MeshType & m, const typename MeshType::EdgeType   *ep) { return ( (ep >= &*m.edge.begin()) && ( ep < &*m.edge.end()) ); }
+template<class MeshType>
+bool IsValidPointer( MeshType & m, const typename MeshType::FaceType   *fp) { return ( (fp >= &*m.face.begin()) && ( fp < &*m.face.end()) ); }
+template<class MeshType>
+bool IsValidPointer( MeshType & m, const typename MeshType::HEdgeType  *hp) { return ( (hp >= &*m.hedge.begin())&& ( hp < &*m.hedge.end()) ); }
 
 template <class MeshType, class ATTR_CONT>
 void ReorderAttribute(ATTR_CONT &c, std::vector<size_t> & newVertIndex, MeshType & /* m */){
@@ -534,7 +543,7 @@ public:
       fi->Alloc(3); fi->V(0)=v0; fi->V(1)=v1; fi->V(2)=v2;
       fi->SetF(2);
       ++fi;
-      fi->Alloc(3); fi->V(0)=v0; fi->V(2)=v1; fi->V(3)=v2;
+      fi->Alloc(3); fi->V(0)=v0; fi->V(1)=v2; fi->V(2)=v3;
       fi->SetF(0);
       return fi;
     }
@@ -711,6 +720,15 @@ public:
           }
           else m.vert [ pu.remap[i] ].VFClear();
         }
+        if(HasVEAdjacency(m))
+        {
+          if (m.vert[i].IsVEInitialized())
+          {
+            m.vert[ pu.remap[i] ].VEp() = m.vert[i].cVEp();
+            m.vert[ pu.remap[i] ].VEi() = m.vert[i].cVEi();
+          }
+          else m.vert [ pu.remap[i] ].VEClear();
+        }
       }
     }
 
@@ -836,8 +854,8 @@ public:
         m.edge[ pu.remap[i] ].V(0) = m.edge[i].cV(0);
         m.edge[ pu.remap[i] ].V(1) = m.edge[i].cV(1);
         // Now just copy the adjacency pointers (without changing them, to be done later)
-        if(HasPerVertexVEAdjacency(m) && HasPerEdgeVEAdjacency(m) )
-          if (m.edge[i].cVEp(0)!=0)
+        if(HasVEAdjacency(m))
+          //if (m.edge[i].cVEp(0)!=0)
           {
             m.edge[ pu.remap[i] ].VEp(0) = m.edge[i].cVEp(0);
             m.edge[ pu.remap[i] ].VEi(0) = m.edge[i].cVEi(0);
@@ -873,7 +891,7 @@ public:
     ResizeAttribute(m.edge_attr,m.en,m);
 
     // Loop on the vertices to update the pointers of VE relation
-    if(HasPerVertexVEAdjacency(m) &&HasPerEdgeVEAdjacency(m))
+    if(HasVEAdjacency(m))
       for (VertexIterator vi=m.vert.begin(); vi!=m.vert.end(); ++vi)
         if(!(*vi).IsD())  pu.Update((*vi).VEp());
 
@@ -881,7 +899,7 @@ public:
     for(EdgeIterator ei=m.edge.begin();ei!=m.edge.end();++ei)
       for(unsigned int i=0;i<2;++i)
       {
-        if(HasPerVertexVEAdjacency(m) &&HasPerEdgeVEAdjacency(m))
+        if(HasVEAdjacency(m))
           pu.Update((*ei).VEp(i));
         if(HasEEAdjacency(m))
           pu.Update((*ei).EEp(i));

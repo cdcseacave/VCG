@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004                                                \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -457,6 +457,7 @@ public:
   {
     tri::RequireCompactness(m);
     tri::UpdateFlags<MeshType>::VertexClearV(m);
+    int count_split = 0;
     for(size_t i=0;i<m.edge.size();++i)
     {
       for(int j=0;j<2;++j)
@@ -465,11 +466,19 @@ public:
         if(vp->IsS())
         {
           if(!vp->IsV())
+	    {
             m.edge[i].V(j) = &*(tri::Allocator<MeshType>::AddVertex(m,vp->P()));
-          else vp->SetV();
+	    ++count_split;
+	    }
+          else 
+	    {
+	      vp->SetV();
+	    }
+	  
         }
       }
     }
+    return count_split;
   }
 
 
@@ -496,7 +505,7 @@ public:
     for(size_t i=0;i<m.vert.size();++i)
     {
       std::vector<VertexPointer> VVStarVec;
-      edge::VVStarVE<typename MeshType::EdgeType>(&(m.vert[i]),VVStarVec);
+      edge::VVStarVE(&(m.vert[i]),VVStarVec);
       if(VVStarVec.size()==2)
       {
         CoordType v0 = m.vert[i].P() - VVStarVec[0]->P();
@@ -975,6 +984,19 @@ public:
       }
     }
     return nonManifoldCnt;
+  }
+  /// Very simple test of water tightness. No boundary and no non manifold edges. 
+  /// Assume that it is orientable. 
+  /// It could be debated if a closed non orientable surface is watertight or not. 
+  /// 
+  /// The rationale of not testing orientability here is that 
+  /// it requires FFAdj while this test do not require any adjacency.
+  /// 
+  static bool IsWaterTight(MeshType & m)
+  {
+    int edgeNum=0,edgeBorderNum=0,edgeNonManifNum=0;
+    CountEdgeNum(m, edgeNum, edgeBorderNum,edgeNonManifNum);
+    return  (edgeBorderNum==0) && (edgeNonManifNum==0);
   }
 
   static void CountEdgeNum( MeshType & m, int &total_e, int &boundary_e, int &non_manif_e )

@@ -2,7 +2,7 @@
  * VCGLib                                                            o o     *
  * Visual and Computer Graphics Library                            o     o   *
  *                                                                _   O  _   *
- * Copyright(C) 2004                                                \/)\/    *
+ * Copyright(C) 2004-2016                                           \/)\/    *
  * Visual Computing Lab                                            /\/|      *
  * ISTI - Italian National Research Council                           |      *
  *                                                                    \      *
@@ -98,7 +98,7 @@ void example2(){
 
         // normally, faces with more than 4sides are split into parallelograms
         // this merges them (optional, try removing it!)
-        vcg::tri::PolygonSupport<MyMesh,int>::MergeFlatFaces(m);
+        vcg::tri::PolygonSupport<MyMesh,MyMesh>::MergeFlatFaces(m);
 
         int savemask = vcg::tri::io::Mask::IOM_BITPOLYGONAL;
         vcg::tri::io::ExporterOFF<MyMesh>::Save(m,fullMeshFilename,savemask);

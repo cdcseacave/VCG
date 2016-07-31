@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004                                                \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -347,8 +347,8 @@ static void VertexSaturate(MeshType &m, ScalarType gradientThr=1.0)
      face::VVStarVF<FaceType>(vc,star);
      for(vvi=star.begin();vvi!=star.end();++vvi )
      {
-       float &qi = (*vvi)->Q();
-       float distGeom = Distance((*vvi)->cP(),vc->cP()) / gradientThr;
+       ScalarType &qi = (*vvi)->Q();
+       ScalarType distGeom = Distance((*vvi)->cP(),vc->cP()) / gradientThr;
        // Main test if the quality varies more than the geometric displacement we have to lower something.
        if( distGeom < fabs(qi - vc->Q()))
        {

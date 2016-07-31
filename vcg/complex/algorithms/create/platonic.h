@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004                                                \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -583,13 +583,13 @@ void Torus(MeshType &m, float hRingRadius, float vRingRadius, int hRingDiv=24, i
   Allocator<MeshType>::AddVertices(m,(vRingDiv+1)*(hRingDiv+1));
   for(int i=0;i<hRingDiv+1;++i)
   {
-    Matrix44x RotM; RotM.SetRotateRad(float(i%hRingDiv)*angleStepH,CoordType(0,1,0));
+    Matrix44x RotM; RotM.SetRotateRad(float(i%hRingDiv)*angleStepH,CoordType(0,0,1));
     for(int j=0;j<vRingDiv+1;++j)
     {
       CoordType p;
       p[0]= vRingRadius*cos(float(j%vRingDiv)*angleStepV) + hRingRadius;
-      p[1]= vRingRadius*sin(float(j%vRingDiv)*angleStepV);
-      p[2] = 0;
+      p[1] = 0;
+      p[2]= vRingRadius*sin(float(j%vRingDiv)*angleStepV);
 
       m.vert[i*(vRingDiv+1)+j].P() = RotM*p;
     }
@@ -600,7 +600,95 @@ void Torus(MeshType &m, float hRingRadius, float vRingRadius, int hRingDiv=24, i
 
 }
 
+/// Auxilary functions for superquadric surfaces
+/// Used by SuperToroid and SuperEllipsoid
+template <class ScalarType>
+static  ScalarType _SQfnC(ScalarType a, ScalarType b){
+  return math::Sgn(cos(a))*pow(fabs(cos(a)),b);
+};
+template <class ScalarType>
+static ScalarType _SQfnS(ScalarType a, ScalarType b){
+  return math::Sgn(sin(a))*pow(fabs(sin(a)),b);
+};
 
+
+/**
+ * SuperToroid
+ * 
+ * Generate a  a supertoroid, e.g. a member of a family of doughnut-like surfaces 
+ * (technically, a topological torus) whose shape is defined by mathematical formulas 
+ * similar to those that define the superquadrics. 
+ */
+template <class MeshType>
+void SuperToroid(MeshType &m, float hRingRadius, float vRingRadius, float vSquareness, float hSquareness, int hRingDiv=24, int vRingDiv=12 )
+{
+  typedef typename MeshType::CoordType CoordType;
+  typedef typename MeshType::ScalarType ScalarType;
+  m.Clear();
+  ScalarType angleStepV = (2.0f*M_PI)/vRingDiv;
+  ScalarType angleStepH = (2.0f*M_PI)/hRingDiv;
+  
+  ScalarType u,v;
+  int count;
+  Allocator<MeshType>::AddVertices(m,(vRingDiv+1)*(hRingDiv+1));
+  for(int i=0;i<hRingDiv+1;++i)
+  {
+    u=float(i%hRingDiv)*angleStepH;
+    count=0;
+    for(int j=vRingDiv;j>=0;--j)
+    {
+      CoordType p;
+      v=float(j%vRingDiv)*angleStepV;
+      p[0]= (hRingRadius+vRingRadius*_SQfnC(u,vSquareness))*_SQfnC(v,hSquareness);;
+      p[1]= (hRingRadius+vRingRadius*_SQfnC(u,vSquareness))*_SQfnS(v,hSquareness);
+      p[2] = vRingRadius*_SQfnS(u,vSquareness);
+      m.vert[i*(vRingDiv+1)+count].P() = p;
+      count++;
+    }
+  }
+  FaceGrid(m,vRingDiv+1,hRingDiv+1);
+  tri::Clean<MeshType>::RemoveDuplicateVertex(m);
+  tri::Allocator<MeshType>::CompactEveryVector(m);
+
+}
+/**
+ * Generate a SuperEllipsoid eg  a solid whose horizontal sections are super-ellipses (Lamé curves)
+ * with the same exponent r, and whose vertical sections through the center are super-ellipses with 
+ * the same exponent t.
+ */
+template <class MeshType>
+void SuperEllipsoid(MeshType &m, float rFeature, float sFeature, float tFeature, int hRingDiv=24, int vRingDiv=12 )
+{
+  typedef typename MeshType::CoordType CoordType;
+  typedef typename MeshType::ScalarType ScalarType;
+  m.Clear();
+  ScalarType angleStepV = (2.0f*M_PI)/vRingDiv;
+  ScalarType angleStepH = (1.0f*M_PI)/hRingDiv;
+  float u;
+  float v;
+  Allocator<MeshType>::AddVertices(m,(vRingDiv+1)*(hRingDiv+1));
+  for(int i=0;i<hRingDiv+1;++i)
+  {
+    //u=ScalarType(i%hRingDiv)*angleStepH + angleStepH/2.0;
+    u=i*angleStepH;
+    for(int j=0;j<vRingDiv+1;++j)
+    {
+      CoordType p;
+      v=ScalarType(j%vRingDiv)*angleStepV;
+      p[0] = _SQfnC(v,2/rFeature)*_SQfnC(u,2/rFeature);
+      p[1] = _SQfnC(v,2/sFeature)*_SQfnS(u,2/sFeature);
+      p[2] = _SQfnS(v,2/tFeature);
+      m.vert[i*(vRingDiv+1)+j].P() = p;
+    }
+  }
+  FaceGrid(m,vRingDiv+1,hRingDiv+1);
+  tri::Clean<MeshType>::MergeCloseVertex(m,ScalarType(angleStepV*angleStepV*0.001));
+  tri::Allocator<MeshType>::CompactEveryVector(m);
+  bool oriented, orientable;
+  tri::UpdateTopology<MeshType>::FaceFace(m);
+  tri::Clean<MeshType>::OrientCoherentlyMesh(m,oriented,orientable);  
+  tri::UpdateSelection<MeshType>::Clear(m);
+}
 // this function build a mesh starting from a vector of generic coords (objects having a triple of float at their beginning)
 // and a vector of faces (objects having a triple of ints at theri beginning).
 template <class MeshType,class V, class F >

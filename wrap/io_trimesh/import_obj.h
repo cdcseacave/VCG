@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004                                                \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -692,8 +692,10 @@ namespace vcg {
                             }
 
                             // set faux edge flags according to internals faces
-                            if (indexedFaces[i].edge[j]) m.face[i].SetF(j);
-                            else m.face[i].ClearF(j);
+                            if (indexedFaces[i].edge[j]) 
+								m.face[i].SetF(j);
+                            else 
+                                m.face[i].ClearF(j);
                         }
 
                         if (HasPerFaceNormal(m))

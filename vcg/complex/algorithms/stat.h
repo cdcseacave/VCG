@@ -2,13 +2,13 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2006                                                \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
 * All rights reserved.                                                      *
 *                                                                           *
-* This program is free software; you can redistribute it and/or modify      *
+* This program is free software; you can redistribute it and/or modify      *   
 * it under the terms of the GNU General Public License as published by      *
 * the Free Software Foundation; either version 2 of the License, or         *
 * (at your option) any later version.                                       *
@@ -33,6 +33,7 @@
 #include <vcg/complex/algorithms/closest.h>
 #include <vcg/space/index/grid_static_ptr.h>
 #include <vcg/complex/algorithms/update/topology.h>
+#include <vcg/complex/algorithms/inertia.h>
 
 
 namespace vcg {
@@ -163,6 +164,11 @@ public:
     return barycenter/areaSum;
   }
 
+  static ScalarType ComputeMeshVolume(MeshType & m)
+  {
+    Inertia<MeshType> I(m);
+    return I.Mass();
+  }
 
   static ScalarType ComputeMeshArea(MeshType & m)
   {

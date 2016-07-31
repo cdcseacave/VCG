@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004                                                \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -53,7 +53,7 @@ public:
         bool * newdataLoc = new bool[ sz ];
         if(datasize!=0) memcpy(newdataLoc,data,sizeof(datasize));
         std::swap(data,newdataLoc);
-        if(newdataLoc != 0) delete newdataLoc;
+        if(newdataLoc != 0) delete[] newdataLoc;
         datareserve = sz;
     }
 

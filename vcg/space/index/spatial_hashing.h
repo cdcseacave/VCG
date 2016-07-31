@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004                                                \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -209,7 +209,7 @@ protected:
           return inSphVec.size();
         }
 
-        int RemoveInSphere(const Point3<ScalarType> &p, const ScalarType radius)
+        size_t RemoveInSphere(const Point3<ScalarType> &p, const ScalarType radius)
         {
           std::vector<HashIterator> inSphVec;
           CountInSphere(p,radius,inSphVec);
