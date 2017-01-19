@@ -54,9 +54,9 @@ int main( int argc, char **argv )
     printf("Usage trimesh_voronoiclustering mesh region_num iterNum\n");
      return -1;
   }
-  int seedNum = atoi(argv[2]);
+  int seed = atoi(argv[2]);
   int iterNum   = atoi(argv[3]);
-  printf("Reading %s and sampling %i \n",argv[1],seedNum);
+  printf("Reading %s and sampling %i \n",argv[1],seed);
   int ret= tri::io::ImporterPLY<MyMesh>::Open(baseMesh,argv[1]);
   if(ret!=0)
   {
@@ -66,14 +66,15 @@ int main( int argc, char **argv )
 
   int randSeed=time(0);
   tri::UpdateTopology<MyMesh>::VertexFace(baseMesh);
-  tri::TrivialPointerSampler<MyMesh> cs;
-  tri::SurfaceSampling<MyMesh, tri::TrivialPointerSampler<MyMesh> >::SamplingRandomGenerator().initialize(randSeed);
-  tri::SurfaceSampling<MyMesh, tri::TrivialPointerSampler<MyMesh> >::VertexUniform(baseMesh,cs,seedNum);
+  std::vector<MyVertex *> seedVec;
+  tri::ClusteringSampler<MyMesh> cs(seedVec);
+  tri::SurfaceSampling<MyMesh, vcg::tri::ClusteringSampler<MyMesh> >::SamplingRandomGenerator().initialize(randSeed);
+  tri::SurfaceSampling<MyMesh, vcg::tri::ClusteringSampler<MyMesh> >::VertexUniform(baseMesh,cs,seed);
   tri::VoronoiProcessingParameter vpp;
   tri::EuclideanDistance<MyMesh> df;
-  tri::VoronoiProcessing<MyMesh>::VoronoiRelaxing(baseMesh, cs.sampleVec, iterNum, df, vpp);
-  tri::VoronoiProcessing<MyMesh>::TopologicalVertexColoring(baseMesh, cs.sampleVec);
-  tri::VoronoiProcessing<MyMesh>::ConvertDelaunayTriangulationToMesh(baseMesh,clusteredMesh,cs.sampleVec);
+  tri::VoronoiProcessing<MyMesh>::VoronoiRelaxing(baseMesh, seedVec, iterNum, df, vpp);
+  tri::VoronoiProcessing<MyMesh>::TopologicalVertexColoring(baseMesh, seedVec);
+  tri::VoronoiProcessing<MyMesh>::ConvertDelaunayTriangulationToMesh(baseMesh,clusteredMesh,seedVec);
 
   tri::io::ExporterPLY<MyMesh>::Save(baseMesh,"base.ply",tri::io::Mask::IOM_VERTCOLOR );
   tri::io::ExporterPLY<MyMesh>::Save(clusteredMesh,"clustered.ply");

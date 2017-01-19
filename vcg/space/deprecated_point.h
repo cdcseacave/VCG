@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004-2016                                           \/)\/    *
+* Copyright(C) 2004                                                \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -177,10 +177,6 @@ public:
     {
         return _v;
     }
-	inline S * V()
-	{
-		return _v;
-	}
     inline S & V( const int i )
     {
         assert(i>=0 && i<N);

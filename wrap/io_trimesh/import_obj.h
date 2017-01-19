@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004-2016                                           \/)\/    *
+* Copyright(C) 2004                                                \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -57,7 +57,6 @@ namespace vcg {
                 typedef typename OpenMeshType::VertexPointer VertexPointer;
                 typedef typename OpenMeshType::ScalarType ScalarType;
                 typedef typename OpenMeshType::VertexType VertexType;
-                typedef typename OpenMeshType::EdgeType   EdgeType;
                 typedef typename OpenMeshType::FaceType FaceType;
                 typedef typename OpenMeshType::VertexIterator VertexIterator;
                 typedef typename OpenMeshType::FaceIterator FaceIterator;
@@ -83,8 +82,6 @@ namespace vcg {
 
                     /// number of vertices
                     int numVertices;
-                    /// number of edges
-                    int numEdges;
                     /// number of faces (the number of triangles could be
                     /// larger in presence of polygonal faces
                     int numFaces;
@@ -113,12 +110,6 @@ namespace vcg {
                     int tInd;
                     bool  edge[3];// useless if the face is a polygon, no need to have variable length array
                     Color4b c;
-                };
-
-                struct ObjEdge
-                {
-                    int v0;
-                    int v1;
                 };
 
                 struct ObjTexCoord
@@ -212,7 +203,7 @@ namespace vcg {
                 static int Open(OpenMeshType &mesh, const char *filename, int &loadmask, CallBackPos *cb=0)
                 {
                     Info oi;
-                    oi.mask=0;
+                    oi.mask=-1;
                     oi.cb=cb;
                     int ret=Open(mesh,filename,oi);
                     loadmask=oi.mask;
@@ -234,7 +225,7 @@ namespace vcg {
                     CallBackPos *cb = oi.cb;
 
                     // if LoadMask has not been called yet, we call it here
-                    if (oi.mask == 0)
+                    if (oi.mask == -1)
                         LoadMask(filename, oi);
 
                     const int inputMask = oi.mask;
@@ -247,13 +238,10 @@ namespace vcg {
                     //if (oi.numFaces == 0)
                     //	return E_NO_FACE;
 
-
                     std::ifstream stream(filename);
                     if (stream.fail())
-                    {
-                        stream.close();
                         return E_CANTOPEN;
-                    }
+
                     std::vector<Material>	materials;  // materials vector
                     std::vector<ObjTexCoord>	texCoords;  // texture coordinates
                     std::vector<CoordType>  normals;		// vertex normals
@@ -269,7 +257,6 @@ namespace vcg {
                     materials.push_back(defaultMaterial);
 
                     int numVertices  = 0;  // stores the number of vertices been read till now
-                    int numEdges     = 0;  // stores the number of edges read till now
                     int numTriangles = 0;  // stores the number of faces been read till now
                     int numTexCoords = 0;  // stores the number of texture coordinates been read till now
                     int numVNormals	 = 0;  // stores the number of vertex normals been read till now
@@ -279,8 +266,6 @@ namespace vcg {
                     // vertices and faces allocation
                     VertexIterator vi = vcg::tri::Allocator<OpenMeshType>::AddVertices(m,oi.numVertices);
                     //FaceIterator   fi = Allocator<OpenMeshType>::AddFaces(m,oi.numFaces);
-                    // edges found
-                    std::vector<ObjEdge> ev;
                     std::vector<Color4b> vertexColorVector;
                     ObjIndexedFace	ff;
                     const char *loadingStr = "Loading";
@@ -297,18 +282,13 @@ namespace vcg {
 
                             // callback invocation, abort loading process if the call returns false
                             if ((cb !=NULL) && (((numTriangles + numVertices)%100)==0) && !(*cb)((100*(numTriangles + numVertices))/numVerticesPlusFaces, loadingStr))
-                            {
-                                stream.close();
                                 return E_ABORTED;
-                            }
+
                             if (header.compare("v")==0)	// vertex
                             {
                                 loadingStr="Vertex Loading";
-                                if (numTokens < 4)
-                                {
-                                    stream.close();
-                                    return E_BAD_VERTEX_STATEMENT;
-                                }
+                                if (numTokens < 4) return E_BAD_VERTEX_STATEMENT;
+
                                 (*vi).P()[0] = (ScalarType) atof(tokens[1].c_str());
                                 (*vi).P()[1] = (ScalarType) atof(tokens[2].c_str());
                                 (*vi).P()[2] = (ScalarType) atof(tokens[3].c_str());
@@ -341,11 +321,8 @@ namespace vcg {
                             {
                                 loadingStr="Vertex Texture Loading";
 
-                                if (numTokens < 3)
-                                {
-                                    stream.close();
-                                    return E_BAD_VERT_TEX_STATEMENT;
-                                }
+                                if (numTokens < 3) return E_BAD_VERT_TEX_STATEMENT;
+
                                 ObjTexCoord t;
                                 t.u = static_cast<float>(atof(tokens[1].c_str()));
                                 t.v = static_cast<float>(atof(tokens[2].c_str()));
@@ -357,11 +334,8 @@ namespace vcg {
                             {
                                 loadingStr="Vertex Normal Loading";
 
-                                if (numTokens != 4)
-                                {
-                                    stream.close();
-                                    return E_BAD_VERT_NORMAL_STATEMENT;
-                                }
+                                if (numTokens != 4) return E_BAD_VERT_NORMAL_STATEMENT;
+
                                 CoordType n;
                                 n[0] = (ScalarType) atof(tokens[1].c_str());
                                 n[1] = (ScalarType) atof(tokens[2].c_str());
@@ -369,22 +343,6 @@ namespace vcg {
                                 normals.push_back(n);
 
                                 numVNormals++;
-                            }
-                            else if ( header.compare("l")==0 )
-                            {
-                                loadingStr = "Edge Loading";
-
-                                if (numTokens < 3)
-                                {
-                                    result = E_LESS_THAN_3_VERT_IN_FACE; // TODO add proper/handling error code
-                                    continue;
-                                }
-
-                                ObjEdge e = { (atoi(tokens[1].c_str()) - 1),
-                                              (atoi(tokens[2].c_str()) - 1) };
-                                ev.push_back(e);
-
-                                numEdges++;
                             }
                             else if( (header.compare("f")==0) || (header.compare("q")==0) )  // face
                             {
@@ -396,7 +354,6 @@ namespace vcg {
                                 if(header.compare("q")==0) {
                                     QuadFlag=true;
                                     if (vertexesPerFace != 4) {
-                                        stream.close();
                                         return E_LESS_THAN_4_VERT_IN_QUAD;
                                     }
                                 }
@@ -423,10 +380,8 @@ namespace vcg {
                                         // verifying validity of texture coords indices
                                         for(int i=0;i<vertexesPerFace;i++)
                                             if(!GoodObjIndex(ff.t[i],oi.numTexCoords))
-                                            {
-                                                stream.close();
                                                 return E_BAD_VERT_TEX_INDEX;
-                                            }
+
                                         ff.tInd=materials[currentMaterialIdx].index;
                                     }
 
@@ -442,21 +397,15 @@ namespace vcg {
 
                                     for(int i=0;i<vertexesPerFace;i++)
                                         if(!GoodObjIndex(ff.v[i],numVertices))
-                                        {
-                                            stream.close();
                                             return E_BAD_VERT_INDEX;
-                                        }
+
 
                                     if(( oi.mask & vcg::tri::io::Mask::IOM_WEDGNORMAL ) ||
                                        ( oi.mask & vcg::tri::io::Mask::IOM_VERTNORMAL  ) )
                                     {
                                         // verifying validity of vertex normal indices
                                         for(int i=0;i<vertexesPerFace;i++)
-                                            if(!GoodObjIndex(ff.n[i],numVNormals))
-                                            {
-                                                stream.close();
-                                                return E_BAD_VERT_NORMAL_INDEX;
-                                            }
+                                            if(!GoodObjIndex(ff.n[i],numVNormals)) return E_BAD_VERT_NORMAL_INDEX;
                                     }
 
 
@@ -496,8 +445,6 @@ namespace vcg {
 #ifdef __gl_h_
                                         //qDebug("OK: using opengl tessellation for a polygon of %i verteces",vertexesPerFace);
                                         vcg::glu_tesselator::tesselate<vcg::Point3f>(polygonVect, indexTriangulatedVect);
-                                        if(indexTriangulatedVect.size()==0)
-                                          FanTessellator(polygonVect, indexTriangulatedVect);
 #else
                                         //qDebug("Warning: using fan tessellation for a polygon of %i verteces",vertexesPerFace);
                                         FanTessellator(polygonVect, indexTriangulatedVect);
@@ -524,6 +471,7 @@ namespace vcg {
                                             locInd[iii]=indexTriangulatedVect[pi+iii];
                                             ff.v[iii]=indexVVect[ locInd[iii] ];
                                             ff.n[iii]=indexNVect[ locInd[iii] ];
+//											qDebug("ff.n[iii]=indexNVect[ locInd[iii] ]; %i", ff.n[iii]);
                                             ff.t[iii]=indexTVect[ locInd[iii] ];
                                         }
 
@@ -632,24 +580,6 @@ namespace vcg {
                     } // end while stream not eof
                     assert((numTriangles +numVertices) == numVerticesPlusFaces+extraTriangles);
                     vcg::tri::Allocator<OpenMeshType>::AddFaces(m,numTriangles);
-
-                    // Add found edges
-                    if (numEdges > 0)
-                    {
-                        vcg::tri::Allocator<OpenMeshType>::AddEdges(m,numEdges);
-
-                        assert(m.edge.size() == size_t(m.en));
-
-                        for(int i=0; i<numEdges; ++i)
-                        {
-                            ObjEdge &  e    = ev[i];
-                            assert(e.v0 >= 0 && size_t(e.v0) < m.vert.size() &&
-                                   e.v1 >= 0 && size_t(e.v1) < m.vert.size());
-                            // TODO add proper handling of bad indices
-                            m.edge[i].V(0) = &(m.vert[e.v0]);
-                            m.edge[i].V(1) = &(m.vert[e.v1]);
-                        }
-                    }
                     //-------------------------------------------------------------------------------
 
                     // Now the final passes:
@@ -660,9 +590,7 @@ namespace vcg {
                         m.face[i].Alloc(indexedFaces[i].v.size()); // it does not do anything if it is a trimesh
 
                         for(unsigned int j=0;j<indexedFaces[i].v.size();++j)
-                        {   
-                           int vertInd = indexedFaces[i].v[j];
-                           assert(vertInd >=0 && vertInd < m.vn);
+                        {
                             m.face[i].V(j) = &(m.vert[indexedFaces[i].v[j]]);
 
                             if (((oi.mask & vcg::tri::io::Mask::IOM_WEDGTEXCOORD) != 0) && (HasPerWedgeTexCoord(m)))
@@ -685,14 +613,13 @@ namespace vcg {
 
                             if ( oi.mask & vcg::tri::io::Mask::IOM_VERTNORMAL )
                             {
+//							  qDebug("XXXXXX %i",indexedFaces[i].n[j]);
                                 m.face[i].V(j)->N().Import(normals[indexedFaces[i].n[j]]);
                             }
 
                             // set faux edge flags according to internals faces
-                            if (indexedFaces[i].edge[j]) 
-								m.face[i].SetF(j);
-                            else 
-                                m.face[i].ClearF(j);
+                            if (indexedFaces[i].edge[j]) m.face[i].SetF(j);
+                            else m.face[i].ClearF(j);
                         }
 
                         if (HasPerFaceNormal(m))
@@ -709,7 +636,7 @@ namespace vcg {
                             }
                             else
                             {
-                                m.face[i].N().Import(TriangleNormal(m.face[i]).Normalize());
+                                face::ComputeNormalizedNormal(m.face[i]);
                             }
                         }
                     }
@@ -725,16 +652,16 @@ namespace vcg {
                             m.vert[i].C()=vertexColorVector[i];
                         }
                     }
-                    stream.close();
+
                     return result;
                 } // end of Open
 
 
                 /*!
-                * Read the next valid line and parses it into "tokens" (e.g. groups like 234/234/234), allowing
-                * the tokens to be read one at a time. It read multiple lines  concatenating them if they end with '\'
-                *  \param stream  The object providing the input stream
-                *  \param tokens  The "tokens" in the next line
+                * Read the next valid line and parses it into "tokens", allowing
+                *	the tokens to be read one at a time.
+                * \param stream	The object providing the input stream
+                *	\param tokens	The "tokens" in the next line
                 */
                 inline static void TokenizeNextLine(std::ifstream &stream, std::vector< std::string > &tokens, std::vector<Color4b> *colVec)
                 {
@@ -743,16 +670,6 @@ namespace vcg {
                     do
                     {
                         std::getline(stream, line);
-                        // We have to manage backspace terminated lines, 
-                        // joining them together before parsing them
-                        if(!line.empty() && line.back()==13) line.pop_back();
-                        while(!line.empty() && line.back()=='\\') {
-                          std::string tmpLine;
-                          std::getline(stream, tmpLine);
-                          if(tmpLine.back()==13) line.pop_back();
-                          line.pop_back(); 
-                          line.append(tmpLine);
-                        }
                         const size_t len = line.length();
                         if((len > 0) && colVec && line[0] == '#')
                         {
@@ -805,12 +722,6 @@ namespace vcg {
                     while (from<length);
                 } // end TokenizeNextLine
 
-                // This function takes a token and, according to the mask, it returns the indexes of the involved vertex, normal and texcoord indexes.
-                // Example. if the obj file has vertex texcoord (e.g. lines 'vt 0.444 0.5555')
-                // when parsing  a line like
-                // f 46/303 619/325 624/326 623/327
-                // if in the mask you have specified to read wedge tex coord
-                // for the first token it will return inside vId and tId the corresponding indexes 46 and 303 )                
                 inline static void SplitToken(const std::string & token, int & vId, int & nId, int & tId, int mask)
                 {
                     static const char delimiter = '/';
@@ -826,28 +737,157 @@ namespace vcg {
                     const bool hasNormal   = (secondSep != std::string::npos) || (mask & Mask::IOM_WEDGNORMAL) || (mask & Mask::IOM_VERTNORMAL);
 
                     if (hasPosition) vId = atoi(token.substr(0, firstSep).c_str()) - 1;
-                    if (hasTexcoord) tId = atoi(token.substr(firstSep + 1, secondSep - firstSep - 1).c_str()) - 1;
+                    if (hasTexcoord) tId =               atoi(token.substr(firstSep + 1, secondSep - firstSep - 1).c_str()) - 1;
                     if (hasNormal)
                       nId = atoi(token.substr(secondSep + 1).c_str()) - 1;
+//					qDebug("%s -> %i %i %i",token.c_str(),vId,nId,tId);
+                    /*
+                    const std::string vStr = (hasPosition) ? (token.substr(0, firstSep))                            : ("0");
+                    const std::string tStr = (hasTexcoord) ? (token.substr(firstSep + 1, secondSep - firstSep - 1)) : ("0");
+                    const std::string nStr = (hasNormal)   ? (token.substr(secondSep + 1))                          : ("0");
+
+                    if (!vStr.empty()) vId = atoi(vStr.c_str()) - 1;
+                    if (!tStr.empty()) tId = atoi(tStr.c_str()) - 1;
+                    if (!nStr.empty()) nId = atoi(nStr.c_str()) - 1;
+                    */
                 }
 
+#if 0
+                // This function takes a token and, according to the mask, it returns the indexes of the involved vertex, normal and texcoord indexes.
+                // Example. if the obj file has vertex texcoord (e.g. lines 'vt 0.444 0.5555')
+                // when parsing  a line like
+                // f 46/303 619/325 624/326 623/327
+                // if in the mask you have specified to read wedge tex coord
+                // for the first token it will return inside vId and tId the corresponding indexes 46 and 303 )
+                inline static void SplitToken(std::string token, int &vId, int &nId, int &tId, int mask)
+                {
+                    std::string vertex;
+                    std::string texcoord;
+                    std::string normal;
+
+                    if( ( mask & Mask::IOM_WEDGTEXCOORD ) && (mask & Mask::IOM_WEDGNORMAL) )   SplitVVTVNToken(token, vertex, texcoord, normal);
+                    if(!( mask & Mask::IOM_WEDGTEXCOORD ) && (mask & Mask::IOM_WEDGNORMAL) )   SplitVVNToken(token, vertex, normal);
+                    if( ( mask & Mask::IOM_WEDGTEXCOORD ) &&!(mask & Mask::IOM_WEDGNORMAL) )   SplitVVTToken(token, vertex, texcoord);
+                    if(!( mask & Mask::IOM_WEDGTEXCOORD ) &&!(mask & Mask::IOM_WEDGNORMAL) )   SplitVToken(token, vertex);
+
+                    vId = atoi(vertex.c_str()) - 1;
+                    if(mask & Mask::IOM_WEDGTEXCOORD) tId = atoi(texcoord.c_str()) - 1;
+                    if(mask & Mask::IOM_WEDGNORMAL)   nId = atoi(normal.c_str())   - 1;
+                }
+
+                inline static void SplitVToken(std::string token, std::string &vertex)
+                {
+                    vertex = token;
+                }
+
+                inline static void SplitVVTToken(std::string token, std::string &vertex, std::string &texcoord)
+                {
+                    vertex.clear();
+                    texcoord.clear();
+
+                    size_t from		= 0;
+                    size_t to			= 0;
+                    size_t length = token.size();
+
+                    if(from!=length)
+                    {
+                        char c = token[from];
+                        vertex.push_back(c);
+
+                        to = from+1;
+                        while (to<length && ((c = token[to]) !='/'))
+                        {
+                            vertex.push_back(c);
+                            ++to;
+                        }
+                        ++to;
+                        while (to<length && ((c = token[to]) !=' '))
+                        {
+                            texcoord.push_back(c);
+                            ++to;
+                        }
+                    }
+                }	// end of SplitVVTToken
+
+                inline static void SplitVVNToken(std::string token, std::string &vertex, std::string &normal)
+                {
+                    vertex.clear();
+                    normal.clear();
+
+                    size_t from		= 0;
+                    size_t to			= 0;
+                    size_t length = token.size();
+
+                    if(from!=length)
+                    {
+                        char c = token[from];
+                        vertex.push_back(c);
+
+                        to = from+1;
+                        while (to!=length && ((c = token[to]) !='/'))
+                        {
+                            vertex.push_back(c);
+                            ++to;
+                        }
+                        ++to;
+                        ++to;  // should be the second '/'
+                        while (to!=length && ((c = token[to]) !=' '))
+                        {
+                            normal.push_back(c);
+                            ++to;
+                        }
+                    }
+                }	// end of SplitVVNToken
+
+                inline static void SplitVVTVNToken(std::string token, std::string &vertex, std::string &texcoord, std::string &normal)
+                {
+                    vertex.clear();
+                    texcoord.clear();
+                    normal.clear();
+
+                    size_t from		= 0;
+                    size_t to			= 0;
+                    size_t length = token.size();
+
+                    if(from!=length)
+                    {
+                        char c = token[from];
+                        vertex.push_back(c);
+
+                        to = from+1;
+                        while (to!=length && ((c = token[to]) !='/'))
+                        {
+                            vertex.push_back(c);
+                            ++to;
+                        }
+                        ++to;
+                        while (to!=length && ((c = token[to]) !='/'))
+                        {
+                            texcoord.push_back(c);
+                            ++to;
+                        }
+                        ++to;
+                        while (to!=length && ((c = token[to]) !=' '))
+                        {
+                            normal.push_back(c);
+                            ++to;
+                        }
+                    }
+                }	// end of SplitVVTVNToken
+#endif
 
                 /*!
                 * Retrieves infos about kind of data stored into the file and fills a mask appropriately
                 * \param filename The name of the file to open
-                * \param mask     A mask which will be filled according to type of data found in the object
-                * \param oi       A structure which will be filled with infos about the object to be opened
+                *	\param mask	A mask which will be filled according to type of data found in the object
+                * \param oi A structure which will be filled with infos about the object to be opened
                 */
 
                 static bool LoadMask(const char * filename, Info &oi)
                 {
-
                     std::ifstream stream(filename);
-                    if (stream.fail())
-                    {
-                        stream.close();
-                        return false;
-                    }
+                    if (stream.fail()) return false;
+
                     // obtain length of file:
                     stream.seekg (0, std::ios::end);
                     int length = stream.tellg();
@@ -860,7 +900,6 @@ namespace vcg {
                     bool bHasPerVertexColor = false;
 
                     oi.numVertices=0;
-                    oi.numEdges=0;
                     oi.numFaces=0;
                     oi.numTexCoords=0;
                     oi.numNormals=0;
@@ -893,8 +932,6 @@ namespace vcg {
                             else {
                                 if((line[0]=='f') || (line[0]=='q')) oi.numFaces++;
                                 else
-                                    if (line[0]=='l') oi.numEdges++;
-                                else
                                     if(line[0]=='u' && line[1]=='s') bHasPerFaceColor = true; // there is a usematerial so add per face color
                             }
                         }
@@ -917,10 +954,6 @@ namespace vcg {
                         else
                             oi.mask |= vcg::tri::io::Mask::IOM_WEDGNORMAL;
                     }
-                    if (oi.numEdges)
-                        oi.mask |= vcg::tri::io::Mask::IOM_EDGEINDEX;
-
-                    stream.close();
 
                     return true;
                 }

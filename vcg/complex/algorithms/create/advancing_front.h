@@ -1,26 +1,3 @@
-/****************************************************************************
-* VCGLib                                                            o o     *
-* Visual and Computer Graphics Library                            o     o   *
-*                                                                _   O  _   *
-* Copyright(C) 2004-2016                                           \/)\/    *
-* Visual Computing Lab                                            /\/|      *
-* ISTI - Italian National Research Council                           |      *
-*                                                                    \      *
-* All rights reserved.                                                      *
-*                                                                           *
-* This program is free software; you can redistribute it and/or modify      *   
-* it under the terms of the GNU General Public License as published by      *
-* the Free Software Foundation; either version 2 of the License, or         *
-* (at your option) any later version.                                       *
-*                                                                           *
-* This program is distributed in the hope that it will be useful,           *
-* but WITHOUT ANY WARRANTY; without even the implied warranty of            *
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the             *
-* GNU General Public License (http://www.gnu.org/licenses/gpl.txt)          *
-* for more details.                                                         *
-*                                                                           *
-****************************************************************************/
-
 #ifndef MLS_ADVANCE_H
 #define MLS_ADVANCE_H
 
@@ -89,7 +66,7 @@ template <class MESH> class AdvancingFront {
 
 
     UpdateFlags<MESH>::FaceBorderFromNone(mesh);
-    UpdateFlags<MESH>::VertexBorderFromFaceBorder(mesh);
+    UpdateFlags<MESH>::VertexBorderFromFace(mesh);
 
     nb.clear();
     nb.resize(mesh.vert.size(), 0);
@@ -365,8 +342,13 @@ public:
 
 protected:
   void AddFace(int v0, int v1, int v2) {
-    FaceIterator fi = vcg::tri::Allocator<MESH>::AddFace(mesh,v0,v1,v2);
-    fi->N() = TriangleNormal(*fi).Normalize();
+    assert(v0 < (int)mesh.vert.size() && v1 < (int)mesh.vert.size() && v2 < (int)mesh.vert.size());
+    FaceIterator fi = vcg::tri::Allocator<MESH>::AddFaces(mesh,1);
+    fi->ClearFlags();
+    fi->V(0) = &mesh.vert[v0];
+    fi->V(1) = &mesh.vert[v1];
+    fi->V(2) = &mesh.vert[v2];
+    ComputeNormalizedNormal(*fi);
     if(tri::HasVFAdjacency(mesh))
     {
       for(int j=0;j<3;++j)
@@ -538,24 +520,24 @@ template <class MESH> class AdvancingTest: public AdvancingFront<MESH> {
      {
        if((this->mesh.vert[i].P() - point).Norm() < 0.1)
        {
-         vn = i;
-         //find the border
-         assert(this->mesh.vert[i].IsB());
-         for(std::list<FrontEdge>::iterator k = this->front.begin(); k != this->front.end(); k++)
-           if((*k).v0 == i)
-           {
-             touch.first = AdvancingFront<MESH>::FRONT;
-             touch.second = k;
-           }
+            vn = i;
+            //find the border
+            assert(this->mesh.vert[i].IsB());
+            for(std::list<FrontEdge>::iterator k = this->front.begin(); k != this->front.end(); k++)
+                if((*k).v0 == i)
+                {
+                                        touch.first = AdvancingFront<MESH>::FRONT;
+                    touch.second = k;
+                }
 
-         for(std::list<FrontEdge>::iterator k = this->deads.begin(); k != this->deads.end(); k++)
-           if((*k).v0 == i)
-             if((*k).v0 == i)
-             {
-               touch.first = AdvancingFront<MESH>::FRONT;
-               touch.second = k;
-             }
-         break;
+            for(std::list<FrontEdge>::iterator k = this->deads.begin(); k != this->deads.end(); k++)
+                if((*k).v0 == i)
+                    if((*k).v0 == i)
+                    {
+                                                touch.first = AdvancingFront<MESH>::FRONT;
+                        touch.second = k;
+                    }
+            break;
        }
      }
      if(vn == this->mesh.vert.size()) {

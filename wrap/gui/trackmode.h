@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004-2016                                           \/)\/    *
+* Copyright(C) 2004                                                \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -1014,7 +1014,7 @@ private:
   /// rubberband_handle after an Undo() call.
   Point3f undo_rubberband_handle;
   /// path endpoint after an Undo() call.
-  size_t undo_path_index;
+  unsigned int undo_path_index;
 
 };
 

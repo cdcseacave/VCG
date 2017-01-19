@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004-2016                                           \/)\/    *
+* Copyright(C) 2004                                                \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -59,12 +59,6 @@ public:
 	inline  Box2( const Box2 & b ) { min=b.min; max=b.max; }
 		/// Min Max constructor
 	inline  Box2( const Point2<BoxScalarType> & mi, const Point2<BoxScalarType> & ma ) { min = mi; max = ma; }
-
-    inline Box2(const Point2<BoxScalarType> & center, const BoxScalarType & radius) {
-        min = center-Point2<BoxScalarType>(radius,radius);
-        max = center+Point2<BoxScalarType>(radius,radius);
-      }
-
 		/// Distructor
 	inline ~Box2() { }
 		/// Operator to compare two bounding box

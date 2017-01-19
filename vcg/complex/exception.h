@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004-2016                                           \/)\/    *
+* Copyright(C) 2004-2012                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -67,36 +67,6 @@ public:
       return buf;
     }
 };
+}
 
-class MissingPolygonalRequirementException : public std::runtime_error
-{
-public:
-  MissingPolygonalRequirementException(const std::string &err):std::runtime_error(err)
-  {
-    std::cout << "Mesh has to be composed by polygonal faces (not plain triangles) -" << err << "- \n";
-  }
-
-    virtual const char *what() const throw ()
-    {
-      static char buf[128]="Mesh has to be composed by polygonal faces (not plain triangles) ";
-      return buf;
-    }
-};
-
-class MissingPreconditionException : public std::runtime_error
-{
-public:
-  MissingPreconditionException(const std::string &err):std::runtime_error(err)
-  {
-    std::cout << "Mesh does not satisfy the following precondition:" << err << "- \n";
-  }
-
-    virtual const char *what() const throw ()
-    {
-      static char buf[128]="Mesh does not satisfy precondition";
-      return buf;
-    }
-};
-
-} // end namespace vcg
 #endif // EXCEPTION_H

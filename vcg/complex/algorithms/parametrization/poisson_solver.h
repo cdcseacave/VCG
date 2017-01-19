@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004-2016                                           \/)\/    *
+* Copyright(C) 2004                                                \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -27,7 +27,6 @@
 #include <eigenlib/Eigen/Sparse>
 
 #include <vcg/complex/algorithms/clean.h>
-#include <vcg/complex/algorithms/update/bounding.h>
 #include <vcg/complex/algorithms/parametrization/distortion.h>
 #include <vcg/complex/algorithms/parametrization/uv_utils.h>
 
@@ -70,8 +69,8 @@ class PoissonSolver
     bool use_direction_field,fix_selected,correct_fixed;
     ///size of the scalar field
     ScalarType fieldScale;
-//    ///handle per direction field
-//    PerFaceCoordHandle Fh0,Fh1;
+    ///handle per direction field
+    PerFaceCoordHandle Fh0,Fh1;
 
     int VertexIndex(VertexType* v)
     {
@@ -111,7 +110,7 @@ class PoissonSolver
 
         tri::UpdateTopology<MeshType>::FaceFace(mesh);
         tri::UpdateFlags<MeshType>::FaceBorderFromFF(mesh);
-        tri::UpdateFlags<MeshType>::VertexBorderFromFaceBorder(mesh);
+        tri::UpdateFlags<MeshType>::VertexBorderFromFace(mesh);
 
         ScalarType dmax=0;
         v0=NULL;
@@ -275,7 +274,7 @@ class PoissonSolver
 
         ///then consider area but also considering scale factor dur to overlaps
         ScalarType areaT=((f->P(1)-f->P(0))^(f->P(2)-f->P(0))).Norm()/2.0;
-         for (int x=0;x<3;x++)
+        for (int x=0;x<3;x++)
             for (int y=0;y<3;y++)
                 if (x!=y)
                 {
@@ -316,10 +315,10 @@ class PoissonSolver
                 assert(CrossDir1);*/
 
         //K1=f->Q3();
-        K1=f->PD1();
+        K1=Fh0[f];
         K1.Normalize();
         //K2=fNorm^K1;
-        K2=f->PD2();
+        K2=Fh1[f];
         K2.Normalize();
 
         scaled_Kreal = K1*(vector_field_scale);///2);
@@ -331,7 +330,7 @@ class PoissonSolver
         b[3] = scaled_Kimag * neg_t[1];
         b[4] = scaled_Kreal * neg_t[2];
         b[5] = scaled_Kimag * neg_t[2];
-
+        ////fine codice mio
     }
 
     ///return the LHS and RHS for a given face
@@ -349,7 +348,7 @@ class PoissonSolver
 
     void FixPointLSquares()
     {
-        ScalarType penalization=1000000;
+        ScalarType penalization=1000;
         int offset_row=n_vert_vars;
         assert(to_fix.size()>0);
         for (size_t i=0;i<to_fix.size();i++)
@@ -482,7 +481,7 @@ class PoissonSolver
     ///map back values to vertex
     ///if normalize==true then set the
     ///coordinates between 0 and 1
-    void MapCoords(bool normalize=true,
+    void MapCoords(bool normalize=false,
                    ScalarType /*fieldScale*/=1.0)
     {
         ///clear Visited Flag
@@ -547,26 +546,19 @@ public:
         int NNmanifoldE=tri::Clean<MeshType>::CountNonManifoldEdgeFF(mesh);
         if (NNmanifoldE!=0)
         {
-            printf("Non Manifold Edges \n");
+            printf("Non Manifold");
             return false;
         }
-        int NNmanifoldV=tri::Clean<MeshType>::CountNonManifoldVertexFF(mesh);
-        if (NNmanifoldV!=0)
-        {
-            printf("Non Manifold Vertices \n");
-            return false;
-        }
-        int H=tri::Clean<MeshType>::CountHoles(mesh);
-        if (H==0)return false;
-
+        /*int NNmanifoldV=tri::Clean<MeshType>::CountNonManifoldVertexFF(mesh);
+        if (NNmanifoldV!=0)return false;*/
         int G=tri::Clean<MeshType>::MeshGenus(mesh);
-        if (G!=0)
+        int numholes=tri::Clean<MeshType>::CountHoles(mesh);
+        if (numholes==0)
         {
-            printf("Genus %d\n",G);
+            printf("Non omeomorph to a disc");
             return false;
         }
-
-        return (true);
+        return (G==0);
     }
 
     ///set the border as fixed
@@ -630,7 +622,7 @@ public:
                 assert(0);
             }
             v0->T().P()=Point2<ScalarType>(0,0);
-            v1->T().P()=Point2<ScalarType>(1,1);
+            v1->T().P()=Point2<ScalarType>(1,0);
             to_fix.push_back(v0);
             to_fix.push_back(v1);
             return;
@@ -643,15 +635,15 @@ public:
     {
         use_direction_field=_use_direction_field;
         //query if an attribute is present or not
-//        if (use_direction_field)
-//        {
-//            bool CrossDir0 = tri::HasPerFaceAttribute(mesh,"CrossDir0");
-//            bool CrossDir1 = tri::HasPerFaceAttribute(mesh,"CrossDir1");
-//            assert(CrossDir0);
-//            assert(CrossDir1);
-//            Fh0= tri::Allocator<MeshType> :: template GetPerFaceAttribute<CoordType>(mesh,std::string("CrossDir0"));
-//            Fh1= tri::Allocator<MeshType> :: template GetPerFaceAttribute<CoordType>(mesh,std::string("CrossDir1"));
-//        }
+        if (use_direction_field)
+        {
+            bool CrossDir0 = tri::HasPerFaceAttribute(mesh,"CrossDir0");
+            bool CrossDir1 = tri::HasPerFaceAttribute(mesh,"CrossDir1");
+            assert(CrossDir0);
+            assert(CrossDir1);
+            Fh0= tri::Allocator<MeshType> :: template GetPerFaceAttribute<CoordType>(mesh,std::string("CrossDir0"));
+            Fh1= tri::Allocator<MeshType> :: template GetPerFaceAttribute<CoordType>(mesh,std::string("CrossDir1"));
+        }
         correct_fixed=_correct_fixed;
         fieldScale=_fieldScale;
         to_fix.clear();
@@ -691,13 +683,13 @@ public:
         ///initialize the matrix ALLOCATING SPACE
         InitMatrix();
 
-//        if (use_direction_field)
-//        {
-//            bool CrossDir0 = tri::HasPerFaceAttribute(mesh,"CrossDir0");
-//            bool CrossDir1 = tri::HasPerFaceAttribute(mesh,"CrossDir1");
-//            assert(CrossDir0);
-//            assert(CrossDir1);
-//        }
+        if (use_direction_field)
+        {
+            bool CrossDir0 = tri::HasPerFaceAttribute(mesh,"CrossDir0");
+            bool CrossDir1 = tri::HasPerFaceAttribute(mesh,"CrossDir1");
+            assert(CrossDir0);
+            assert(CrossDir1);
+        }
 
         ///build the laplacian system
         BuildLaplacianMatrix(fieldScale);

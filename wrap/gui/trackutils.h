@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004-2016                                           \/)\/    *
+* Copyright(C) 2004                                                \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -20,7 +20,51 @@
 * for more details.                                                         *
 *                                                                           *
 ****************************************************************************/
+/****************************************************************************
+  History
 
+$Log: not supported by cvs2svn $
+Revision 1.13  2008/02/26 18:46:55  ponchio
+Fixed bug in drawing position of the trackball when changin center.
+
+Revision 1.12  2008/02/24 18:10:54  ponchio
+Fixed scale behaviour.
+
+Revision 1.11  2008/02/24 18:05:08  ponchio
+Should work as before. I didn't test cylinder and other exotic modes.
+
+Revision 1.10  2008/02/24 14:37:00  ponchio
+Restored trackball functionality. Not very much tested, and code will need some
+cleanup.
+
+Revision 1.9  2008/02/22 18:57:47  benedetti
+first attempt to correct after quaternion ToMatrix() inversion (does not work yet)
+
+Revision 1.8  2008/02/15 20:54:45  benedetti
+removed some variable initialization related warning
+
+Revision 1.7  2007/10/22 14:39:54  cignoni
+corrected bug into the drawsphere (thanks to nico and guido!)
+
+Revision 1.6  2007/08/17 09:19:40  cignoni
+glEnable (GL_LINE_SMOOTH) should go before changing the linewidth.
+
+Revision 1.5  2007/07/14 12:44:40  benedetti
+Minor edits in Doxygen documentation.
+
+Revision 1.4  2007/07/09 22:41:22  benedetti
+Added Doxygen documentation, removed using namespace std, some other minor changes.
+
+Revision 1.3  2007/06/12 08:58:08  benedetti
+Minor fix in DrawUglyCylinderMode()
+
+Revision 1.2  2007/05/28 08:10:47  fiorin
+Removed type cast warnings
+
+Revision 1.1  2007/05/15 14:57:34  benedetti
+Utility functions for the trackmodes, first version
+
+****************************************************************************/
 
 #ifndef TRACKUTILS_H
 #define TRACKUTILS_H
@@ -100,24 +144,24 @@ Point3f HitViewPlane (Trackball * tb, const Point3f & p)
 
   <br>The original documentation (in italian) follows:
 <pre>
-dato un punto in coordinate di schermo e.g. in pixel stile opengl
-calcola il punto di intersezione tra la viewline  che passa per
+dato un punto in coordinate di schermo e.g. in pixel stile opengl 
+calcola il punto di intersezione tra la viewline  che passa per 
 viewpoint e per hitplane e l'iperboloide.
-l'iperboloide si assume essere quello di rotazione attorno alla
+l'iperboloide si assume essere quello di rotazione attorno alla 
 retta viewpoint-center e di raggio rad
-si assume come sistema di riferimento quello con l'origine
+si assume come sistema di riferimento quello con l'origine 
 su center ecome x la retta center-viewpoint
 
 eq linea
        hitplane.y
-y = - ----------- * x + hitplane.y
+y = - ----------- * x + hitplane.y 
       viewpoint.x
 
-eq hiperboloide di raggio r (e.g. che passa per (r/sqrt2,r/sqrt2)
+eq hiperboloide di raggio r (e.g. che passa per (r/sqrt2,r/sqrt2) 
 
      1
 y = --- * (r^2 /2.0)
-     x
+     x 
 
  hitplane.y
  ----------- * x^2 - hitplane.y *x + (r^2/2.0) == 0
@@ -132,10 +176,10 @@ y = --- * (r^2 /2.0)
   @param hit the projection of hitplane on the rotational hyperboloid relative to the manipulator.
   @return true if and only if hit is valid.
 */
-bool HitHyper (Point3f center, float radius, Point3f viewpoint, Plane3f viewplane,
-                           Point3f hitOnViewplane, Point3f & hit)
+bool HitHyper (Point3f center, float radius, Point3f viewpoint, Plane3f vp,
+                           Point3f hitplane, Point3f & hit)
 {
-  float hitplaney = Distance (center, hitOnViewplane);
+  float hitplaney = Distance (center, hitplane);
   float viewpointx = Distance (center, viewpoint);
 
   float a = hitplaney / viewpointx;
@@ -155,41 +199,11 @@ bool HitHyper (Point3f center, float radius, Point3f viewpoint, Plane3f viewplan
     return false;
   }
   // Computing the result in 3d space;
-  Point3f dirRadial = hitOnViewplane - center;
+  Point3f dirRadial = hitplane - center;
   dirRadial.Normalize ();
-  Point3f dirView = viewplane.Direction ();
+  Point3f dirView = vp.Direction ();
   dirView.Normalize ();
   hit = center + dirRadial * yval + dirView * xval;
-  return true;
-}
-/**
- * @brief HitHyperOrtho
- * @param center
- * @param radius
- * @param viewpoint
- * @param viewplane
- * @param hitOnViewplane
- * @param hit
- * @return true if the hit is valid
- *
- * Specialized version of the HitHyper();
- * in the simple ortho case, the hit point is just the value of
- * y = 1/x * (r^2 /2 ) on the hitOnViewPlane
- */
-bool HitHyperOrtho(Point3f center, float radius, Point3f /*viewpoint*/, Plane3f viewplane,
-                   Point3f hitOnViewplane, Point3f & hit)
-{
-  float xval = Distance (center, hitOnViewplane);
-
-  float yval = (1.0 / xval ) *  radius * radius / 2.0f;
-
-  // Computing the result in 3d space;
-  Point3f dirRadial = hitOnViewplane - center;
-  dirRadial.Normalize ();
-  Point3f dirView = viewplane.Direction ();
-  dirView.Normalize ();
-  hit = center + dirRadial * xval + dirView * yval;
-
   return true;
 }
 
@@ -200,16 +214,16 @@ bool HitHyperOrtho(Point3f center, float radius, Point3f /*viewpoint*/, Plane3f 
 
   <br>The original documentation (in italian) follows:
 <pre>
-dato un punto in coordinate di schermo e.g. in pixel stile opengl
-restituisce un punto in coordinate di mondo sulla superficie
+dato un punto in coordinate di schermo e.g. in pixel stile opengl 
+restituisce un punto in coordinate di mondo sulla superficie 
 della trackball.
-La superficie della trackball e' data da una sfera + una porzione
+La superficie della trackball e' data da una sfera + una porzione 
 di iperboloide di rotazione.
-Assumiamo la sfera di raggio unitario e centrata sull'origine e
+Assumiamo la sfera di raggio unitario e centrata sull'origine e 
 di guardare lungo la y negativa.
 
-                                    X   0   sqrt(1/2)  1
-eq sfera:              y=sqrt(1-x*x);   1   sqrt(1/2)  0
+                                    X   0   sqrt(1/2)  1  
+eq sfera:              y=sqrt(1-x*x);   1   sqrt(1/2)  0   
 eq iperboloide :       y=1/2*x;         inf  sqrt(1/2)  1/2
 eq cono                y=x+sqrt(2);
 </pre>
@@ -221,14 +235,15 @@ eq cono                y=x+sqrt(2);
 Point3f HitSphere (Trackball * tb, const Point3f & p)
 {
   Point3f center = tb->center;
-  Line3fN ln = tb->camera.ViewLineFromWindow (Point3f (p[0], p[1], 0));
+  Line3fN ln = tb->camera.ViewLineFromWindow (Point3f (p[0], p[1], 0));  
   Plane3f vp = GetViewPlane (tb->camera, center);
   Point3f hitPlane(0,0,0), //intersection view plane with point touched
-          hitSphere(0,0,0),
-          hitSphere1(0,0,0),
-          hitSphere2(0,0,0),
+          hitSphere(0,0,0), 
+          hitSphere1(0,0,0), 
+          hitSphere2(0,0,0), 
           hitHyper(0,0,0);
-
+  IntersectionPlaneLine < float >(vp, ln, hitPlane);
+  
   Sphere3f sphere (center, tb->radius);//trackball sphere
   bool resSp = IntersectionLineSphere < float >(sphere, ln, hitSphere1, hitSphere2);
 
@@ -241,12 +256,7 @@ Point3f HitSphere (Trackball * tb, const Point3f & p)
   }
 
   /*float dl= */ Distance (ln, center);
-  bool resHp;
-  IntersectionPlaneLine < float >(vp, ln, hitPlane);
-  if(tb->camera.isOrtho)
-    resHp= HitHyperOrtho (center, tb->radius, viewpoint, vp, hitPlane, hitHyper);
-  else
-    resHp= HitHyper (center, tb->radius, viewpoint, vp, hitPlane, hitHyper);
+  bool resHp = HitHyper (center, tb->radius, viewpoint, vp, hitPlane, hitHyper);
 
   // four cases
 
@@ -264,7 +274,7 @@ Point3f HitSphere (Trackball * tb, const Point3f & p)
   // 4) line cross both sphere and hyperboloid: choose according angle.
   float angleDeg = math::ToDeg (Angle ((viewpoint - center), (hitSphere - center)));
 
-//  qDebug("Angle %f (%5.2f %5.2f %5.2f) (%5.2f %5.2f %5.2f)",angleDeg,hitSphere[0],hitSphere[1],hitSphere[2],hitHyper[0],hitHyper[1],hitHyper[2]);
+  //printf("Angle %f (%5.2f %5.2f %5.2f) (%5.2f %5.2f %5.2f)\n",angleDeg,hitSphere[0],hitSphere[1],hitSphere[2],hitHyper[0],hitHyper[1],hitHyper[2]);
   if (angleDeg < 45)
     return hitSphere;
   else
@@ -287,7 +297,7 @@ Point3f HitSphere (Trackball * tb, const Point3f & p)
   //  if(d > d2) hit = hit2;
   //  hit -= tb->center;
   //} else {
-  //  if(d > 2.99 * Thr)
+  //  if(d > 2.99 * Thr) 
   //    d = 2.99 * Thr;
   //  Point3f norm = (hit - tb->center)^(viewpoint - tb->center);
   //  norm.Normalize();
@@ -327,7 +337,7 @@ std::pair< float, bool > LineLineDistance(const Line3f & P,const Line3f & Q,Poin
   const float det = ( VPVP * VQVQ ) - ( VPVQ * VPVQ );
   const float EPSILON = 0.00001f;
   if ( fabs(det) < EPSILON ) {
-    return std::make_pair(Distance(P,q0), true);
+  	return std::make_pair(Distance(P,q0), true);
   }
   float b1= (q0 - p0).dot(Vp);
   float b2= (p0 - q0).dot(Vq);
@@ -341,7 +351,7 @@ std::pair< float, bool > LineLineDistance(const Line3f & P,const Line3f & Q,Poin
 /*!
   @brief Calculates the minimal distance between a ray and a line.
 
-  R is the ray and Q is the line, R_s and Q_t are set to be the closest points on
+  R is the ray and Q is the line, R_s and Q_t are set to be the closest points on 
   the ray and the line.
 
   it's returned the distance from R_s and Q_t, and a boolean value which is true
@@ -363,7 +373,7 @@ std::pair< float, bool > RayLineDistance(const Ray3f & R,const Line3f & Q,Point3
   const float det = ( VRVR * VQVQ ) - ( VRVQ * VRVQ );
   const float EPSILON = 0.00001f;
   if ( ( det >= 0.0f ? det : -det) < EPSILON ) {
-    return std::make_pair(Distance(Q,r0), true);
+  	return std::make_pair(Distance(Q,r0), true);
   }
   float b1= (q0 - r0).dot(Vr);
   float b2= (r0 - q0).dot(Vq);
@@ -371,7 +381,7 @@ std::pair< float, bool > RayLineDistance(const Ray3f & R,const Line3f & Q,Point3
   float t = ( (VRVQ * b1) + (VRVR * b2) ) / det;
   if(s<0){
     R_s = r0;
-    Q_t = ClosestPoint(Q,R_s);
+    Q_t = ClosestPoint(Q,R_s);    
   }else {
     R_s = r0 + (Vr * s);
     Q_t = q0 + (Vq * t);
@@ -382,7 +392,7 @@ std::pair< float, bool > RayLineDistance(const Ray3f & R,const Line3f & Q,Point3
 ///*!
 //  @brief Calculates the minimal distance between 2 segments.
 //
-//  R e Q are the segments, R_s and Q_t are set to be the closest points on
+//  R e Q are the segments, R_s and Q_t are set to be the closest points on 
 //  the segments.
 //
 //  it's returned the distance from R_s and Q_t, and a boolean value which is true
@@ -397,7 +407,7 @@ std::pair< float, bool > RayLineDistance(const Ray3f & R,const Line3f & Q,Point3
 //{
 //  float R_len=Distance(R.P0(),R.P1());
 //  float Q_len=Distance(Q.P0(),Q.P1());
-//  const float EPSILON_LENGTH = std::max(R_len,Q_len)*0.0001f;
+//  const float EPSILON_LENGTH = std::max(R_len,Q_len)*0.0001f; 
 //  if(R_len < EPSILON_LENGTH){
 //  	R_s=R.P0();
 //  	Q_t=ClosestPoint(Q,R_s);
@@ -407,7 +417,7 @@ std::pair< float, bool > RayLineDistance(const Ray3f & R,const Line3f & Q,Point3
 //  	Q_t=Q.P0();
 //  	R_s=ClosestPoint(R,Q_t);
 //  	return std::make_pair(Distance(R_s,Q_t),true);
-//  }
+//  }  
 //  Point3f r0 = R.P0(), Vr = (R.P1()-R.P0()).normalized();
 //  Point3f q0 = Q.P0(), Vq = (Q.P1()-Q.P0()).normalized();
 //  float VRVR = Vr.dot(Vr);
@@ -440,7 +450,7 @@ std::pair< float, bool > RayLineDistance(const Ray3f & R,const Line3f & Q,Point3
 //           assert(0);
 //        }
 //      }
-//  	}
+//  	}  	
 //	return std::make_pair(Distance(R_s,Q_t),true);
 //  }
 //  float b1= (q0 - r0).dot(Vr);
@@ -455,7 +465,7 @@ std::pair< float, bool > RayLineDistance(const Ray3f & R,const Line3f & Q,Point3
 //    R_s = r0 + (Vr * s);
 //  }
 //  if( t < 0){
-//  	Q_t = Q.P0();
+//  	Q_t = Q.P0(); 
 //  }else if ( t > Q_len ){
 //    Q_t = Q.P1();
 //  }else{
@@ -467,7 +477,7 @@ std::pair< float, bool > RayLineDistance(const Ray3f & R,const Line3f & Q,Point3
 /*!
   @brief Compute the point on a line closest to the ray projection of a window coordinate point.
 
-  Given a window coordinate point, computes a ray starting from the manipulator
+  Given a window coordinate point, computes a ray starting from the manipulator 
   camera eye and passing through the point's projection on the viewplane, then uses RayLineDistance()
   to get the closest point to ray on a given line.
   @see RayLineDistance(const Ray3f & R,const Line3f & Q,Point3f & R_s, Point3f & Q_t)
@@ -479,10 +489,10 @@ std::pair< float, bool > RayLineDistance(const Ray3f & R,const Line3f & Q,Point3
 std::pair< Point3f,bool > HitNearestPointOnAxis (Trackball * tb,Line3f axis, Point3f point)
 {
   Ray3fN ray = line2ray(tb->camera.ViewLineFromWindow (point));
-  Point3f axis_p(0,0,0), ray_p(0,0,0);
+  Point3f axis_p(0,0,0), ray_p(0,0,0);  
   std::pair< float, bool > resp=RayLineDistance(ray,axis,ray_p,axis_p);
   if(resp.second || (ray_p == ray.Origin())){
-    return std::make_pair(Point3f(0,0,0),false);
+  	return std::make_pair(Point3f(0,0,0),false);
   }
   return std::make_pair(axis_p,true);
 }
@@ -560,7 +570,7 @@ template<class T>
 /*!
   @brief Project a window coordinate point on a plane.
 
-  Given a window coordinate point, computes a ray starting from the manipulator
+  Given a window coordinate point, computes a ray starting from the manipulator 
   camera eye and passing through the point's projection on the viewplane, then uses IntersectionRayPlane()
   to get the ray intersection with a given plane.
 
@@ -674,7 +684,7 @@ void DrawCircle (bool planehandle=true)
   @param active boolean to be set to true if the icon is active.
 */
 void DrawSphereIcon (Trackball * tb, bool active, bool planeshandle=false)
-{
+{  
   glPushAttrib(GL_TRANSFORM_BIT | GL_DEPTH_BUFFER_BIT | GL_ENABLE_BIT | GL_LINE_BIT | GL_CURRENT_BIT | GL_LIGHTING_BIT);
   glMatrixMode(GL_MODELVIEW);
   glPushMatrix ();
@@ -683,7 +693,7 @@ void DrawSphereIcon (Trackball * tb, bool active, bool planeshandle=false)
   Point3f center = tb->center + tb->track.InverseMatrix()*Point3f(0, 0, 0);
   glTranslate(center);
   glScale (tb->radius/tb->track.sca);
-
+  
   float amb[4] = { .35f, .35f, .35f, 1.0f };
   float col[4] = { .5f, .5f, .8f, 1.0f };
   glEnable (GL_LINE_SMOOTH);
@@ -699,23 +709,23 @@ void DrawSphereIcon (Trackball * tb, bool active, bool planeshandle=false)
   glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glColor (DH.color);
   glMaterialfv (GL_FRONT_AND_BACK, GL_EMISSION, amb);
-
+  
   col[0] = .40f; col[1] = .40f; col[2] = .85f;
   glMaterialfv (GL_FRONT_AND_BACK, GL_DIFFUSE, col);
-    DrawCircle(planeshandle);
+	DrawCircle(planeshandle);
 
   glRotatef (90, 1, 0, 0);
   col[0] = .40f; col[1] = .85f; col[2] = .40f;
   glMaterialfv (GL_FRONT_AND_BACK, GL_DIFFUSE, col);
-    DrawCircle(planeshandle);
+  DrawCircle(planeshandle);
 
   glRotatef (90, 0, 1, 0);
   col[0] = .85f; col[1] = .40f; col[2] = .40f;
   glMaterialfv (GL_FRONT_AND_BACK, GL_DIFFUSE, col);
-    DrawCircle(planeshandle);
-
-  glPopMatrix();
-  glPopAttrib();
+	DrawCircle(planeshandle);
+	
+	glPopMatrix ();
+	glPopAttrib ();
 }
 
 // TEMPORARY drawing section
@@ -752,7 +762,7 @@ void prepare_attrib()
 void DrawUglyLetter(Trackball * tb,std::vector<Point3f> ugly_letter)
 {
   Point3f center=tb->camera.Project(tb->center);
-  float offset=0;
+  float offset=0;  
   offset=(std::max)(offset,Distance(center,tb->camera.Project(tb->center+(Point3f(1,0,0) * tb->radius))));
   offset=(std::max)(offset,Distance(center,tb->camera.Project(tb->center+(Point3f(0,1,0) * tb->radius))));
   offset=(std::max)(offset,Distance(center,tb->camera.Project(tb->center+(Point3f(0,0,1) * tb->radius))));
@@ -765,12 +775,12 @@ void DrawUglyLetter(Trackball * tb,std::vector<Point3f> ugly_letter)
   prepare_attrib();
   glColor3f(1,1,1);
   glLineWidth(4.0);
-
+  
   glBegin(GL_LINE_STRIP);
     for(unsigned int i=0;i<ugly_letter.size();i++){
-      glVertex(tb->camera.UnProject(center+(ugly_letter[i] * offset * 0.25)
-               +Point3f(-offset,-offset,0)));
-    }
+  	  glVertex(tb->camera.UnProject(center+(ugly_letter[i] * offset * 0.25)
+  	           +Point3f(-offset,-offset,0)));
+    }  
   glEnd();
   glPopAttrib ();
   glPopMatrix();
@@ -790,9 +800,9 @@ void DrawUglyPanMode(Trackball * tb)
   ugly_p.push_back(Point3f(-1,-1,0));
   ugly_p.push_back(Point3f(-1,1,0));
   ugly_p.push_back(Point3f(1,1,0));
-  ugly_p.push_back(Point3f(1,0,0));
-  ugly_p.push_back(Point3f(-1,0,0));
-
+  ugly_p.push_back(Point3f(1,0,0));  
+  ugly_p.push_back(Point3f(-1,0,0)); 
+  
   DrawUglyLetter(tb,ugly_p);
 }
 
@@ -830,66 +840,6 @@ void DrawUglyScaleMode(Trackball * tb)
   ugly_s.push_back(Point3f(1,-1,0));
   ugly_s.push_back(Point3f(-1,-1,0));
   DrawUglyLetter(tb,ugly_s);
-}
-
-/*!
-@brief function to draw X,Y and Z axis in the trackball sphere.
-
-Draws the three colored axis inside the trackball sphere. added to better see the trackball center when panning
-
-@param tb the manipulator.
-*/
-void DrawSphereAxis(Trackball * tb)
-{
-	glPushAttrib(GL_TRANSFORM_BIT | GL_DEPTH_BUFFER_BIT | GL_ENABLE_BIT | GL_LINE_BIT | GL_CURRENT_BIT | GL_LIGHTING_BIT);
-	glMatrixMode(GL_MODELVIEW);
-	glPushMatrix();
-	glDepthMask(GL_FALSE);
-
-	Point3f center = tb->center + tb->track.InverseMatrix()*Point3f(0, 0, 0);
-	glTranslate(center);
-	glScale(tb->radius / tb->track.sca);
-
-	float amb[4] = { .35f, .35f, .35f, 1.0f };
-	float col[4] = { .5f, .5f, .8f, 1.0f };
-	glEnable(GL_LINE_SMOOTH);
-    glLineWidth(DH.LineWidthMoving);
-	glDisable(GL_COLOR_MATERIAL); // has to be disabled, it is used by wrapper to draw meshes, and prevent direct material setting, used here
-
-	glEnable(GL_LIGHTING);
-	glEnable(GL_LIGHT0);
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glColor(DH.color);
-	glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, amb);
-
-	col[0] = 1.0f; col[1] = 0.0f; col[2] = 0.0f;
-	glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, col);
-	glBegin(GL_LINES);
-	glNormal3d(-1.0, 0.0, 0.0);
-	glVertex3d(-1.2, 0.0, 0.0);
-	glNormal3d( 1.0, 0.0, 0.0);
-	glVertex3d( 1.2, 0.0, 0.0);
-	glEnd();
-	col[0] = 0.0f; col[1] = 1.0f; col[2] = 0.0f;
-	glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, col);
-	glBegin(GL_LINES);
-	glNormal3d(0.0,-1.0, 0.0);
-	glVertex3d(0.0,-1.2, 0.0);
-	glNormal3d(0.0, 1.0, 0.0);
-	glVertex3d(0.0, 1.2, 0.0);
-	glEnd();
-	col[0] = 0.0f; col[1] = 0.0f; col[2] = 1.0f;
-	glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, col);
-	glBegin(GL_LINES);
-	glNormal3d(0.0, 0.0,-1.0);
-	glVertex3d(0.0, 0.0,-1.2);
-	glNormal3d(0.0, 0.0, 1.0);
-	glVertex3d(0.0, 0.0, 1.2);
-	glEnd();
-
-	glPopMatrix();
-	glPopAttrib();
 }
 
 /*!
@@ -965,7 +915,7 @@ void DrawUglyPlaneMode(Trackball * tb,Plane3f plane)
       glVertex(p0+(d1*f0)+(d2*f1));
     }
     glEnd();
-  }
+  }  
   glColor3f(0.9f, 0.9f, 0.2f);
   glPointSize(8.0f);
   glBegin(GL_POINTS);
@@ -1018,7 +968,7 @@ void DrawUglyCylinderMode(Trackball * tb,Line3f axis)
       glVertex(axis.Origin()+p0+(norm*float(i))+(d1*f0)+(d2*f1));
     }
     glEnd();
-  }
+  }  
   glLineWidth(3.0);
   glColor3f(0.2f, 0.2f, 0.9f);
   glBegin(GL_LINES);
@@ -1176,15 +1126,15 @@ void DrawUglyAreaMode(Trackball * tb,const std::vector < Point3f > &points,
       glVertex(p0+(d1*f0)+(d2*f1));
     }
     glEnd();
-  }
-
+  }  
+  
   glPopAttrib ();
   glPopMatrix();
 }
 
 
 } //end namespace trackutils
-
+	
 } //end namespace vcg
 
 #endif //TRACKUTILS_H

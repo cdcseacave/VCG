@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004-2016                                           \/)\/    *
+* Copyright(C) 2004                                                \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -47,8 +47,6 @@ public:
   typedef typename SaveMeshType::VertexType VertexType;
   typedef typename SaveMeshType::ScalarType ScalarType;
   typedef typename SaveMeshType::CoordType CoordType;
-  typedef typename SaveMeshType::FaceType::TexCoordType TexCoordType;
-
   /*
             enum of all the types of error
         */
@@ -144,7 +142,7 @@ public:
     fprintf(fp,"# Object %s\n#\n# Vertices: %d\n# Faces: %d\n#\n####\n",fn.substr(LastSlash+1).c_str(),m.vn,m.fn);
 
     //library materialVec
-    if( (mask & vcg::tri::io::Mask::IOM_FACECOLOR)  || (mask & Mask::IOM_WEDGTEXCOORD) || (mask & Mask::IOM_VERTTEXCOORD) )
+    if( (mask & vcg::tri::io::Mask::IOM_FACECOLOR)  || (mask & Mask::IOM_WEDGTEXCOORD) )
       fprintf(fp,"mtllib ./%s.mtl\n\n",fn.substr(LastSlash+1).c_str());
 
     //vertexs + normal
@@ -197,13 +195,13 @@ public:
     fprintf(fp,"# %d vertices, %d vertices normals\n\n",m.vn,int(NormalVertex.size()));
 
     //faces + texture coords
-    std::map<TexCoordType,int> CoordIndexTexture;
+    std::map<vcg::TexCoord2<ScalarType>,int> CoordIndexTexture;
     unsigned int material_num = 0;
     int mem_index = 0; //var temporany
     int curTexCoordIndex = 1;
     for(FaceIterator fi=m.face.begin(); fi!=m.face.end(); ++fi) if( !(*fi).IsD() )
     {
-      if((mask & Mask::IOM_FACECOLOR) || (mask & Mask::IOM_WEDGTEXCOORD) || (mask & Mask::IOM_VERTTEXCOORD))
+      if((mask & Mask::IOM_FACECOLOR) || (mask & Mask::IOM_WEDGTEXCOORD) )
       {
         int index = Materials<SaveMeshType>::CreateNewMaterial(m,materialVec,material_num,fi);
 
@@ -280,7 +278,7 @@ public:
     fclose(fp);
 
     int errCode = E_NOERROR;
-    if((mask & Mask::IOM_WEDGTEXCOORD) || (mask & Mask::IOM_FACECOLOR) || (mask & Mask::IOM_VERTTEXCOORD) )
+    if((mask & Mask::IOM_WEDGTEXCOORD) || (mask & Mask::IOM_FACECOLOR) )
       errCode = WriteMaterials(materialVec, filename,cb);//write material
 
     if(errCode!= E_NOERROR)
@@ -291,9 +289,9 @@ public:
    /*
             returns index of the texture coord
         */
-  inline static int GetIndexVertexTexture(typename std::map<TexCoordType,int> &mapTexToInt, const TexCoordType &wt)
+  inline static int GetIndexVertexTexture(typename std::map<TexCoord2<ScalarType>,int> &mapTexToInt, const vcg::TexCoord2<ScalarType> &wt)
   {
-    typename std::map<TexCoordType,int>::iterator iter= mapTexToInt.find(wt);
+    typename std::map<vcg::TexCoord2<ScalarType>,int>::iterator iter= mapTexToInt.find(wt);
     if(iter != mapTexToInt.end()) return (*iter).second;
     else 		return -1;
     // Old wrong version.
@@ -337,9 +335,8 @@ public:
             adds a new index to the coordinate of Texture if it is the first time
             which is otherwise met not execute anything
         */
-  template <class TexScalarType>
-  inline static bool AddNewTextureCoord(std::map<typename vcg::TexCoord2<TexScalarType>,int> &m,
-                                        const typename vcg::TexCoord2<TexScalarType> &wt,int value)
+  inline static bool AddNewTextureCoord(std::map<typename vcg::TexCoord2<ScalarType>,int> &m,
+                                        const typename vcg::TexCoord2<ScalarType> &wt,int value)
   {
     int index = m[wt];
     if(index==0){m[wt]=value;return true;}

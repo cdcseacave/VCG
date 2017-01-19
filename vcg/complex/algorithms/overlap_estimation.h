@@ -1,14 +1,14 @@
 /****************************************************************************
-* VCGLib                                                            o o     *
-* Visual and Computer Graphics Library                            o     o   *
+* MeshLab                                                           o o     *
+* A versatile mesh processing toolbox                             o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004-2016                                           \/)\/    *
+* Copyright(C) 2007                                                \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
 * All rights reserved.                                                      *
 *                                                                           *
-* This program is free software; you can redistribute it and/or modify      *   
+* This program is free software; you can redistribute it and/or modify      *
 * it under the terms of the GNU General Public License as published by      *
 * the Free Software Foundation; either version 2 of the License, or         *
 * (at your option) any later version.                                       *
@@ -58,7 +58,7 @@ template<class MESH_TYPE> class OverlapEstimation
     typedef typename MeshType::VertexIterator VertexIterator;
     typedef typename vector<VertexPointer>::iterator VertexPointerIterator;
     typedef GridStaticPtr<VertexType, ScalarType > MeshGrid;
-    typedef tri::EmptyTMark<MeshType> MarkerVertex;
+    typedef tri::VertTmark<MeshType> MarkerVertex;
 
     private:
     /** Private simple class needed to perform sampling of pointers to vertexes. */

@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004-2016                                           \/)\/    *
+* Copyright(C) 2004                                                \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -89,7 +89,6 @@ Edited Comments and GPL license
 #include <float.h>
 #include <math.h>
 #include <assert.h>
-#include <cmath>
 #include <limits>
 #include <algorithm>
 
@@ -187,17 +186,11 @@ inline float   ToRad(const float &a){return float(M_PI)*a/180.0f;}
 inline double  ToDeg(const double &a){return a*180.0/M_PI;}
 inline double  ToRad(const double &a){return M_PI*a/180.0;}
 
-template <typename T>
-int Sgn(T val) {
-    return (T(0) < val) - (val < T(0));
-}
 
 #if defined(_MSC_VER) // Microsoft Visual C++
 template<class T> int IsNAN(T t) {    return _isnan(t) || (!_finite(t)); }
-#elif defined(__MINGW32__) // GCC
-template<class T> int IsNAN(T t) {    return std::isnan(t) || std::isinf(t); }
 #elif defined(__GNUC__) // GCC
-template<class T> int IsNAN(T t) {    return std::isnan(t) || std::isinf(t); }
+template<class T> int IsNAN(T t) {    return isnan(t) || isinf(t); }
 #else // generic
 
 template<class T> int IsNAN(T t)

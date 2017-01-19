@@ -41,16 +41,6 @@ namespace vcg
     public:
       Mode()
       {
-        init();
-      }
-      Mode(Color4b _color)
-      {
-        init();
-        color=_color;
-      }
-
-      void init()
-      {
         color=vcg::Color4b(vcg::Color4b::White);
         angle=0;
         rightAlign = false;
@@ -154,7 +144,7 @@ namespace vcg
       render(painter,p,text,m);
     }
 
-    static void render(QPainter *painter, const vcg::Point3f &p, const QString &text, const Mode &m)
+    static void render(QPainter *painter, const vcg::Point3f &p, const QString &text, Mode &m)
     {
       GLdouble model[16];
       GLdouble proj[16];
@@ -189,7 +179,7 @@ namespace vcg
 
     static void render(QPainter *painter, const vcg::Point3d &p, const QString &text)
     { render(painter,Point3f::Construct(p),text); }
-    static void render(QPainter *painter, const vcg::Point3d &p, const QString &text, const Mode &m)
+    static void render(QPainter *painter, const vcg::Point3d &p, const QString &text, Mode &m)
     { render(painter,Point3f::Construct(p),text,m); }
 
   };

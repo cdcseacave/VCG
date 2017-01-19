@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004-2016                                           \/)\/    *
+* Copyright(C) 2004                                                \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -25,12 +25,10 @@
 #endif
 #ifndef __VCG_VERTEX_PLUS_COMPONENT
 #define __VCG_VERTEX_PLUS_COMPONENT
-
 namespace vcg {
 namespace vertex {
 /** \addtogroup VertexComponentGroup
   @{
-
 */
 /*------------------------- Base Classes  -----------------------------------------*/
 
@@ -49,7 +47,7 @@ template <class TT> class EmptyCore: public TT {
 public:
   typedef int FlagType;
   int &Flags()       { assert(0); static int dummyflags(0);  return dummyflags; }
-  int cFlags() const { return 0; }
+  int cFlags() const { assert(0); return 0; }
   static bool HasFlags()   { return false; }
 
   typedef vcg::Point3f CoordType;
@@ -105,7 +103,6 @@ public:
   typename TT::FacePointer cVFp() const { static typename TT::FacePointer fp=0;  assert(0); return fp; }
   int &VFi()       { static int z=-1; assert(0); return z;}
   int cVFi() const { static int z=-1; assert(0); return z;}
-  bool IsNull() const { return true; }
   static bool HasVFAdjacency()   { return false; }
   bool IsVFInitialized() const {return static_cast<const typename TT::VertexType *>(this)->cVFi()!=-1;}
   void VFClear() {
@@ -117,25 +114,17 @@ public:
 
   typename TT::EdgePointer &VEp()       { static typename TT::EdgePointer ep=0;  assert(0); return ep; }
   typename TT::EdgePointer cVEp() const { static typename TT::EdgePointer ep=0;  assert(0); return ep; }
-  int &VEi()       { static int z=-1; return z;}
-  int cVEi() const { static int z=-1; return z;}
+  int &VEi()       { static int z=0; return z;}
+  int cVEi() const { static int z=0; return z;}
   static bool HasVEAdjacency()   {   return false; }
-  bool IsVEInitialized() const {return static_cast<const typename TT::VertexType *>(this)->cVEi()!=-1;}
-  void VEClear() {
-    if(IsVEInitialized()) {
-      static_cast<typename TT::VertexPointer>(this)->VEp()=0;
-      static_cast<typename TT::VertexPointer>(this)->VEi()=-1;
-    }
-  }
+
   typename TT::HEdgePointer &VHp()       { static typename TT::HEdgePointer ep=0;  assert(0); return ep; }
   typename TT::HEdgePointer cVHp() const { static typename TT::HEdgePointer ep=0;  assert(0); return ep; }
   int &VHi()       { static int z=0; return z;}
   int cVHi() const { static int z=0; return z;}
   static bool HasVHAdjacency()   {   return false; }
 
-  typedef float   CurScalarType;
-  typedef float   ScalarTypeCur;
-  typedef Point3f CurVecType;
+  typedef Point3f VecType;
   typedef Point2f CurvatureType;
   float &Kh()       { static float dummy = 0.f; assert(0);return dummy;}
   float &Kg()       { static float dummy = 0.f; assert(0);return dummy;}
@@ -143,15 +132,15 @@ public:
   float cKg() const { static float dummy = 0.f; assert(0); return dummy;}
 
   typedef CurvatureDirBaseType<float> CurvatureDirType;
-  CurVecType &PD1()       {static CurVecType v(0,0,0); assert(0);return v;}
-  CurVecType &PD2()       {static CurVecType v(0,0,0); assert(0);return v;}
-  CurVecType cPD1() const {static CurVecType v(0,0,0); assert(0);return v;}
-  CurVecType cPD2() const {static CurVecType v(0,0,0); assert(0);return v;}
+  VecType &PD1()       {static VecType v(0,0,0); assert(0);return v;}
+  VecType &PD2()       {static VecType v(0,0,0); assert(0);return v;}
+  VecType cPD1() const {static VecType v(0,0,0); assert(0);return v;}
+  VecType cPD2() const {static VecType v(0,0,0); assert(0);return v;}
 
-  CurScalarType &K1()       { static ScalarType v = 0.0;assert(0);return v;}
-  CurScalarType &K2()       { static ScalarType v = 0.0;assert(0);return v;}
-  CurScalarType cK1() const {static ScalarType v = 0.0;assert(0);return v;}
-  CurScalarType cK2() const  {static ScalarType v = 0.0;assert(0);return v;}
+  ScalarType &K1()       { static ScalarType v = 0.0;assert(0);return v;}
+  ScalarType &K2()       { static ScalarType v = 0.0;assert(0);return v;}
+  ScalarType cK1() const {static ScalarType v = 0.0;assert(0);return v;}
+  ScalarType cK2() const  {static ScalarType v = 0.0;assert(0);return v;}
 
   static bool HasCurvature()			{ return false; }
   static bool HasCurvatureDir()			{ return false; }
@@ -166,19 +155,16 @@ public:
 };
 
 /*-------------------------- COORD ----------------------------------------*/
-/*! \brief \em Generic Component: \b Geometric \b Position of the vertex
-  Templated on the coordinate class. In practice you use one of the two specialized class Coord3f and Coord3d
-  You can access to the coordinate of a vertex by mean of the P(),cP() member functions.
+/*! \brief \em Component: \b Geometric \b Position of the vertex
+
+  Stored as a templated Point3.
   */
 template <class A, class T> class Coord: public T {
 public:
   typedef A CoordType;
   typedef typename A::ScalarType      ScalarType;
-  /// Return a const reference to the coordinate of the vertex
   inline const CoordType &P() const { return _coord; }
-  /// Return a reference to the coordinate of the vertex
   inline       CoordType &P()       { return _coord; }
-  /// Return a const reference to the coordinate of the vertex
   inline       CoordType cP() const { return _coord; }
 
   template < class RightValueType>
@@ -189,35 +175,24 @@ public:
 private:
   CoordType _coord;
 };
-/// Specialized Coord Component in floating point precision.
 template <class T> class Coord3f: public Coord<vcg::Point3f, T> {
 public:	static void Name(std::vector<std::string> & name){name.push_back(std::string("Coord3f"));T::Name(name);}
 };
-/// Specialized Coord Component in double point precision.
 template <class T> class Coord3d: public Coord<vcg::Point3d, T> {
 public: static void Name(std::vector<std::string> & name){name.push_back(std::string("Coord3d"));T::Name(name);}
 };
 
 /*-------------------------- NORMAL ----------------------------------------*/
-  /*! \brief \em Generic Component: \b %Normal of the vertex
+  /*! \brief \em Component: \b %Normal of the vertex
 
-    Templated on the Point3 class used to store the normal.
-    In practice you use one of the two specialized class Normal3f and Normal3d.
-
-    You can access to the normal of a vertex by mean of the N(),cN() member functions.
-
-    \note Many algorithms assume that, for sake of precision coherence,
-    the type of the normal is the same with respect to the type coord component.
+    Stored as a templated Point3. The type of the normal can be different type  with respect to the Coord component
     */
 
 template <class A, class T> class Normal: public T {
 public:
   typedef A NormalType;
-  /// Return a const reference to the normal of the vertex
   inline const NormalType &N() const { return _norm; }
-  /// Return a  reference to the normal of the vertex
   inline       NormalType &N()       { return _norm; }
-  /// Return a const reference to the normal of the vertex
   inline       NormalType cN() const { return _norm; }
   template < class RightValueType>
   void ImportData(const RightValueType  & rVert ){
@@ -234,11 +209,9 @@ private:
 template <class T> class Normal3s: public Normal<vcg::Point3s, T> {
 public:static void Name(std::vector<std::string> & name){name.push_back(std::string("Normal3s"));T::Name(name);}
 };
-/// Specialized Normal component in floating point precision.
 template <class T> class Normal3f: public Normal<vcg::Point3f, T> {
 public:	static void Name(std::vector<std::string> & name){name.push_back(std::string("Normal3f"));T::Name(name);}
 };
-/// Specialized Normal component in double point precision.
 template <class T> class Normal3d: public Normal<vcg::Point3d, T> {
 public:	static void Name(std::vector<std::string> & name){name.push_back(std::string("Normal3d"));T::Name(name);}
 };
@@ -252,12 +225,9 @@ public:	static void Name(std::vector<std::string> & name){name.push_back(std::st
 
 template <class T> class Mark: public T {
 public:
-  Mark():_imark(0){}
-  /// Return a const reference to the incremental mark value
+    Mark():_imark(0){}
   inline const int &IMark() const { return _imark;}
-  /// Return a reference to the incremental mark value
   inline       int &IMark()       { return _imark;}
-  /// Return a const reference to the incremental mark value
   inline       int cIMark() const { return _imark;}
   static bool HasMark()      { return true; }
   inline void InitIMark()    { _imark = 0; }
@@ -270,24 +240,16 @@ public:
 };
 
 /*-------------------------- TEXCOORD ----------------------------------------*/
-  /*! \brief \em Generic Component: Per vertex \b Texture Coords
+  /*! \brief \em Component: Per vertex \b Texture Coords
 
-      Note that to have multiple different TexCoord for a single vertex
-      (as it happens on atlas where a vertex can belong to two triangles
-       mapped on different portionof the texture) you have two options:
-      - explicit duplication of vertexes
+      Note that to have multiple different TexCoord for a single vertex (as it happens on atlas where a vertex can belong to two triangles mapped on different portionof the texture) you have two options:
+      - duplicate vertexes
       - use PerWedge Texture coords
-
-      It is templated on the TextureCoord type. Usually you use the specialized classes TexCoord2f or TexCoord2d;
-      See the TexCoord2 class to see how to access to texture coordinate values.
-
       */
 
 template <class A, class TT> class TexCoord: public TT {
 public:
   typedef A TexCoordType;
-
-  /// Return a const reference to the Texture Coordinate
   const TexCoordType &T() const { return _t; }
         TexCoordType &T()       { return _t; }
         TexCoordType cT() const { return _t; }
@@ -300,15 +262,12 @@ private:
   TexCoordType _t;
 };
 
-
 template <class TT> class TexCoord2s: public TexCoord<TexCoord2<short,1>, TT> {
 public: static void Name(std::vector<std::string> & name){name.push_back(std::string("TexCoord2s"));TT::Name(name);}
 };
-/// Specialized Texture component in floating point precision.
 template <class TT> class TexCoord2f: public TexCoord<TexCoord2<float,1>, TT> {
 public: static void Name(std::vector<std::string> & name){name.push_back(std::string("TexCoord2f"));TT::Name(name);}
 };
-/// Specialized Texture component in double precision.
 template <class TT> class TexCoord2d: public TexCoord<TexCoord2<double,1>, TT> {
 public: static void Name(std::vector<std::string> & name){name.push_back(std::string("TexCoord2d"));TT::Name(name);}
 };
@@ -316,8 +275,7 @@ public: static void Name(std::vector<std::string> & name){name.push_back(std::st
 /*------------------------- FLAGS -----------------------------------------*/
   /*! \brief \em Component: Per vertex \b Flags
 
-      This component stores a 32 bit array of bit flags.
-      These bit flags are used for keeping track of selection, deletion, visiting etc. \sa \ref flags for more details on common uses of flags.
+      This component stores a 32 bit array of bit flags. These bit flags are used for keeping track of selection, deletion, visiting etc. \sa \ref flags for more details on common uses of flags.
       */
 
 template <class T> class BitFlags:  public T {
@@ -406,13 +364,13 @@ public: static void Name(std::vector<std::string> & name){name.push_back(std::st
   template <class A, class TT> class Curvature: public TT {
   public:
     typedef Point2<A> CurvatureType;
-    typedef typename CurvatureType::ScalarType ScalarTypeCur;
-    const ScalarTypeCur &Kh() const { return _hk[0]; }
-    const ScalarTypeCur &Kg() const { return _hk[1]; }
-          ScalarTypeCur &Kh()       { return _hk[0]; }
-          ScalarTypeCur &Kg()       { return _hk[1]; }
-          ScalarTypeCur cKh() const { return _hk[0]; }
-          ScalarTypeCur cKg() const { return _hk[1]; }
+    typedef typename CurvatureType::ScalarType ScalarType;
+    const ScalarType &Kh() const { return _hk[0];}
+    const ScalarType &Kg() const { return _hk[1];}
+          ScalarType &Kh()       { return _hk[0];}
+          ScalarType &Kg()       { return _hk[1];}
+          ScalarType cKh() const { return _hk[0];}
+          ScalarType cKg() const { return _hk[1];}
 
           template < class RightValueType>
           void ImportData(const RightValueType  & rVert ) {
@@ -447,30 +405,29 @@ public: static void Name(std::vector<std::string> & name){name.push_back(std::st
 template <class A, class TT> class CurvatureDir: public TT {
 public:
   typedef A CurvatureDirType;
-    typedef typename CurvatureDirType::VecType CurVecType;
-    typedef typename CurvatureDirType::ScalarType CurScalarType;
+    typedef typename CurvatureDirType::VecType VecType;
+    typedef typename CurvatureDirType::ScalarType ScalarType;
 
-    CurVecType &PD1(){ return _curv.max_dir; }
-    CurVecType &PD2(){ return _curv.min_dir; }
-    const CurVecType &cPD1() const { return _curv.max_dir; }
-    const CurVecType &cPD2() const { return _curv.min_dir; }
+	VecType &PD1(){ return _curv.max_dir;}
+	VecType &PD2(){ return _curv.min_dir;}
+	const VecType &cPD1() const {return _curv.max_dir;}
+	const VecType &cPD2() const {return _curv.min_dir;}
 
-    CurScalarType &K1(){ return _curv.k1; }
-    CurScalarType &K2(){ return _curv.k2; }
-    const CurScalarType &cK1() const { return _curv.k1; }
-    const CurScalarType &cK2() const { return _curv.k2; }
-    template < class RightValueType>
-    void ImportData(const RightValueType  & rVert ) {
-      if(rVert.IsCurvatureDirEnabled()) {
-        PD1().Import(rVert.cPD1());
-        PD2().Import(rVert.cPD2());
-        K1()  = rVert.cK1();  K2()  = rVert.cK2();
-      }
-      TT::ImportData( rVert);
-    }
+	ScalarType &K1(){ return _curv.k1;}
+	ScalarType &K2(){ return _curv.k2;}
+	const ScalarType &cK1() const {return _curv.k1;}
+	const ScalarType &cK2() const {return _curv.k2;}
+	template < class RightValueType>
+	void ImportData(const RightValueType  & rVert ) {
+	  if(rVert.IsCurvatureDirEnabled()) {
+		PD1() = rVert.cPD1(); PD2() = rVert.cPD2();
+		K1()  = rVert.cK1();  K2()  = rVert.cK2();
+	  }
+	  TT::ImportData( rVert);
+	}
 
-    static bool HasCurvatureDir()   { return true; }
-    static void Name(std::vector<std::string> & name){name.push_back(std::string("CurvatureDir"));TT::Name(name);}
+	static bool HasCurvatureDir()   { return true; }
+	static void Name(std::vector<std::string> & name){name.push_back(std::string("CurvatureDir"));TT::Name(name);}
 
 private:
   CurvatureDirType _curv;
@@ -552,7 +509,6 @@ Note that if you use this component it is expected that on the Face you use also
     typename T::FacePointer cVFp() const  { return _fp; }
     int &VFi()       { return _zp; }
     int cVFi() const { return _zp; }
-    bool IsNull() const { return _zp==-1;}
     template < class RightValueType>
     void ImportData(const RightValueType  & rVert ) { T::ImportData( rVert); }
     static bool HasVFAdjacency()   {   return true; }
@@ -567,34 +523,34 @@ Note that if you use this component it is expected that on the Face you use also
 
 template <class T> class VHAdj: public T {
 public:
-    VHAdj(){_hp=0;_zp=-1;}
-    typename T::HEdgePointer &VHp()       {return _hp; }
-    typename T::HEdgePointer cVHp() const {return _hp; }
-    int &VHi() {return _zp; }
-    template < class RightValueType>
-    void ImportData(const RightValueType  & rVert ) {  T::ImportData( rVert); }
-    static bool HasVHAdjacency()   {   return true; }
-    static void Name(std::vector<std::string> & name){name.push_back(std::string("VHAdj"));T::Name(name);}
+	VHAdj(){_hp=0;_zp=-1;}
+	typename T::HEdgePointer &VHp()       {return _hp; }
+	typename T::HEdgePointer cVHp() const {return _hp; }
+	int &VHi() {return _zp; }
+	template < class RightValueType>
+	void ImportData(const RightValueType  & rVert ) {  T::ImportData( rVert); }
+	static bool HasVHAdjacency()   {   return true; }
+	static void Name(std::vector<std::string> & name){name.push_back(std::string("VHAdj"));T::Name(name);}
 
 private:
-    typename T::HEdgePointer _hp ;
-    int _zp ;
+	typename T::HEdgePointer _hp ;
+	int _zp ;
 };
 
 /*----------------------------- VTADJ ------------------------------*/
 
 template <class T> class VTAdj: public T {
 public:
-    VTAdj() { _tp = 0; _zp=-1;}
-    typename T::TetraPointer &VTp()       { return _tp; }
-    typename T::TetraPointer cVTp() const { return _tp; }
-    int &VTi() {return _zp; }
-    static bool HasVTAdjacency() { return true; }
-    static void Name( std::vector< std::string > & name ) { name.push_back( std::string("VTAdj") ); T::Name(name); }
+	VTAdj() { _tp = 0; _zp=-1;}
+	typename T::TetraPointer &VTp()       { return _tp; }
+	typename T::TetraPointer cVTp() const { return _tp; }
+	int &VTi() {return _zp; }
+	static bool HasVTAdjacency() { return true; }
+	static void Name( std::vector< std::string > & name ) { name.push_back( std::string("VTAdj") ); T::Name(name); }
 
 private:
-    typename T::TetraPointer _tp ;
-    int _zp ;
+	typename T::TetraPointer _tp ;
+	int _zp ;
 };
 
   /** @} */   // End Doxygen VertexComponentGroup

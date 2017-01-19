@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004-2016                                           \/)\/    *
+* Copyright(C) 2004                                                \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -23,16 +23,7 @@
 #ifndef POLYGON_POLYCHORD_COLLAPSE_H
 #define POLYGON_POLYCHORD_COLLAPSE_H
 
-#include <vector>
 #include <list>
-#if __cplusplus >= 201103L
-  #include <unordered_map>
-#else
-  #include <map>
-#endif
-#include <set>
-#include <algorithm>
-#include <iterator>
 #include <vcg/complex/complex.h>
 #include <vcg/simplex/face/jumping_pos.h>
 
@@ -68,17 +59,13 @@ public:
   * @brief The PC_ResultCode enum codifies the result type of a polychord collapse operation.
   */
   enum PC_ResultCode {
-    PC_SUCCESS          = 0x000,
-    PC_NOTMANIF         = 0x001,
-    PC_NOTQUAD          = 0x002,
-    PC_NOLINKCOND       = 0x004,
-    PC_SINGSIDEA        = 0x008,
-    PC_SINGSIDEB        = 0x010,
-    PC_SINGBOTH         = 0x020,
-    PC_SELFINTERSECT    = 0x040,
-    PC_NOMOREMANIF      = 0x080,
-    PC_VOID             = 0x100,
-    PC_OTHER            = 0x100
+    PC_SUCCESS = 0,
+    PC_NOTMANIF = 1,
+    PC_NOTQUAD = 2,
+    PC_NOLINKCOND = 4,
+    PC_SINGBOTH = 8,
+    PC_SELFINTERSECT = 16,
+    PC_VOID = 32
   };
 
   /**
@@ -115,8 +102,9 @@ public:
      * @brief ResetMarks
      */
     void ResetMarks() {
-      for (size_t i = 0; i < _Chords.size(); ++i)
-        _Chords.at(i).mark = std::numeric_limits<unsigned long>::max();
+      typename std::vector<PC_Chord>::iterator it = _Chords.begin();
+      for (; it != _Chords.end(); it++)
+        (*it).mark = std::numeric_limits<unsigned long>::max();
     }
 
     /**
@@ -126,13 +114,13 @@ public:
      */
     void Reset(const PolyMeshType &mesh) {
       _Chords.resize(2*mesh.face.size());
-      for (size_t j = 0; j < _Chords.size(); ++j)
+      for (size_t j = 0; j < _Chords.size(); j++)
         _Chords[j].Reset();
       _currentChord = NULL;
 
       PC_Chord *chord = NULL;
       long long j = 0;
-      for (size_t i = 0; i < _Chords.size(); ++i) {
+      for (size_t i = 0; i < _Chords.size(); i++) {
         // set the prev
         chord = NULL;
         if ((long long)i-1 >= 0) {
@@ -140,7 +128,7 @@ public:
           if (vcg::tri::HasPerFaceFlags(mesh)) {
             j = i-1;
             while (j >= 0 && mesh.face[j/2].IsD())
-              --j;
+              j--;
             if (j >= 0)
               chord = &_Chords[j];
             else
@@ -156,7 +144,7 @@ public:
           if (vcg::tri::HasPerFaceFlags(mesh)) {
             j = i+1;
             while (j < (long long)_Chords.size() && mesh.face[j/2].IsD())
-              ++j;
+              j++;
             if (j < (long long)_Chords.size())
               chord = &_Chords[j];
             else
@@ -215,8 +203,8 @@ public:
           coord.prev->next = coord.next;
         if (coord.next != NULL && &coord != _currentChord)
           coord.next->prev = coord.prev;
+        coord.mark = mark;
       }
-      coord.mark = mark;
       coord.q = resultCode;
     }
 
@@ -260,54 +248,11 @@ public:
    */
   class LinkConditions {
   private:
-    typedef long int                LCVertexIndex;
-    typedef std::set<LCVertexIndex> LCVertexStar;   ///< define the star of a vertex
-    typedef long int                LCEdgeIndex;
-    typedef std::set<LCEdgeIndex>   LCEdgeStar;     ///< define the set of edges whose star involves a vertex
+    struct LCEdge;
+    struct LCVertex;
 
-    /**
-     * @brief The LCVertex struct represents a vertex for the Link Conditions.
-     */
-    struct LCVertex {
-      LCVertexStar star;  // vertex star
-      LCEdgeStar edges;   // list of edges whose star involves this vertex
-      LCVertex(){}        // default constructor
-      LCVertex(const LCVertex &lcVertex) {  // copy constructor
-        star = lcVertex.star;
-        edges = lcVertex.edges;
-      }
-      LCVertex & operator=(const LCVertex &lcVertex) { // assignment operator
-        star = lcVertex.star;
-        edges = lcVertex.edges;
-        return *this;
-      }
-      void reset() { star.clear(); edges.clear(); } // reset
-    };
-
-    /**
-     * @brief The LCEdge struct represents an edge for the Link Conditions.
-     */
-    struct LCEdge {
-      LCVertexIndex v1, v2;       // endpoints
-      LCVertexStar star;          // edge star
-      LCEdge() {v1 = v2 = -1;}    // default contructor
-      LCEdge(const LCEdge &lcEdge) {  // copy constructor
-        v1 = lcEdge.v1;
-        v2 = lcEdge.v2;
-        star = lcEdge.star;
-      }
-      LCEdge & operator=(const LCEdge &lcEdge) {  // assignment operator
-        v1 = lcEdge.v1;
-        v2 = lcEdge.v2;
-        star = lcEdge.star;
-        return *this;
-      }
-      void reset() {  // reset
-        v1 = -1;
-        v2 = -1;
-        star.clear();
-      }
-    };
+    typedef std::set<LCVertex *> LCVertexStar;  // define the star of a vertex
+    typedef std::set<LCEdge *> LCEdgeStar;      // define the set of edges whose star involves a vertex
 
   public:
     /**
@@ -322,7 +267,6 @@ public:
      */
     inline void Resize(const size_t size) {
       _lcVertices.resize(size);
-      LC_ResetStars();
     }
 
     /**
@@ -337,11 +281,12 @@ public:
     bool CheckLinkConditions (const PolyMeshType &mesh, const vcg::face::Pos<FaceType> &startPos) {
       assert(!startPos.IsNull());
       assert(mesh.vert.size() == _lcVertices.size());
-      std::vector<LCEdge> lcEdges;
+      std::list<LCEdge> lcEdges;
+      LCEdge *e = NULL;
       LCVertexStar intersection;
 
       // reset the stars
-      LC_ResetStars();
+      LC_ResetStars(mesh, startPos);
 
       // compute the stars
       LC_computeStars(mesh, startPos, lcEdges);
@@ -351,19 +296,15 @@ public:
       //      then collapse e
       // else
       //      return false (i.e. link conditions not satisfied)
-      for (size_t e = 0; e < lcEdges.size(); e++) {
+      for (typename std::list<LCEdge>::iterator eIt = lcEdges.begin(); eIt != lcEdges.end(); eIt++) {
+        e = &*eIt;
         // compute the intersetion
-        intersection.clear();
-        std::set_intersection(_lcVertices[lcEdges[e].v1].star.begin(), _lcVertices[lcEdges[e].v1].star.end(),
-                              _lcVertices[lcEdges[e].v2].star.begin(), _lcVertices[lcEdges[e].v2].star.end(),
-                              std::inserter(intersection, intersection.end()));
-
+        SetIntersection(e->v1->star, e->v2->star, intersection);
         // if intersection( star(v1) , star(v2) ) != star(e) then return false
-        if (intersection != lcEdges[e].star)
+        if (intersection != e->star)
             return false;
-
         // else simulate the collapse
-        LC_SimulateEdgeCollapse(lcEdges, e);
+        LC_SimulateEdgeCollapse(*e);
       }
       // at this point all collapses are possible, thus return true
       return true;
@@ -371,11 +312,80 @@ public:
 
   private:
     /**
-     * @brief LC_ResetStars resets the stars on a polychord.
+     * @brief SetIntersection computes the set intersection between two sets.
+     * @param set1
+     * @param set2
+     * @param result The set resulting from the intersection.
      */
-    void LC_ResetStars() {
-      for (size_t v = 0; v < _lcVertices.size(); ++v)
-        _lcVertices[v].reset();
+    static void SetIntersection (const LCVertexStar &set1, const LCVertexStar &set2, LCVertexStar &result) {
+      typename LCVertexStar::const_iterator set1It = set1.begin();
+      typename LCVertexStar::const_iterator set2It = set2.begin();
+      result.clear();
+      while (set1It != set1.end() && set2It != set2.end()) {
+        if (*set1It < *set2It) ++set1It;
+        else if (*set2It < *set1It) ++set2It;
+        else {
+          result.insert(*set1It);
+          ++set1It;
+          ++set2It;
+        }
+      }
+    }
+
+    /**
+     * @brief LC_ResetStars resets the stars on a polychord.
+     * @param mesh The mesh for getting the vertex index.
+     * @param startPos
+     */
+    void LC_ResetStars (const PolyMeshType &mesh, const vcg::face::Pos<FaceType> &startPos) {
+      assert(!startPos.IsNull());
+      assert(mesh.vert.size() == _lcVertices.size());
+      vcg::face::Pos<FaceType> runPos = startPos;
+      vcg::face::JumpingPos<FaceType> vStarPos;
+      // reset the stars
+      do {
+        // reset the star of this edge endpoints
+        _lcVertices[vcg::tri::Index(mesh, runPos.V())].edges.clear();
+        _lcVertices[vcg::tri::Index(mesh, runPos.V())].star.clear();
+        _lcVertices[vcg::tri::Index(mesh, runPos.VFlip())].edges.clear();
+        _lcVertices[vcg::tri::Index(mesh, runPos.VFlip())].star.clear();
+        // reset the stars of the vertices in the star of the second vertex
+        runPos.FlipV();
+        vStarPos.Set(runPos.F(), runPos.E(), runPos.V());
+        do {
+          vStarPos.FlipV();
+          vStarPos.FlipE();
+          while (vStarPos.V() != runPos.V()) {
+            _lcVertices[vcg::tri::Index(mesh, vStarPos.V())].edges.clear();
+            _lcVertices[vcg::tri::Index(mesh, vStarPos.V())].star.clear();
+            vStarPos.FlipV();
+            vStarPos.FlipE();
+          }
+          vStarPos.NextFE();
+        } while (vStarPos != runPos);
+        // reset the stars of the vertices in the star of the first vertex
+        runPos.FlipV();
+        vStarPos.Set(runPos.F(), runPos.E(), runPos.V());
+        do {
+          vStarPos.FlipV();
+          vStarPos.FlipE();
+          while (vStarPos.V() != runPos.V()) {
+            _lcVertices[vcg::tri::Index(mesh, vStarPos.V())].edges.clear();
+            _lcVertices[vcg::tri::Index(mesh, vStarPos.V())].star.clear();
+            vStarPos.FlipV();
+            vStarPos.FlipE();
+          }
+          vStarPos.NextFE();
+        } while (vStarPos != runPos);
+        // when arrive to a border, return
+        if (runPos != startPos && runPos.IsBorder())
+          break;
+        // go on the next edge
+        runPos.FlipE();
+        runPos.FlipV();
+        runPos.FlipE();
+        runPos.FlipF();
+      } while (runPos != startPos);
     }
 
     /**
@@ -383,57 +393,42 @@ public:
      * either to itself (if it's a loop) or to the border edge.
      * @param mesh The mesh for getting the vertex index.
      * @param startPos Starting position.
-     * @param lcEdges Vector of edge stars.
+     * @param lcEdges List of edge stars.
      */
-    void LC_computeStars (const PolyMeshType &mesh, const vcg::face::Pos<FaceType> &startPos, std::vector<LCEdge> &lcEdges) {
+    void LC_computeStars (const PolyMeshType &mesh, const vcg::face::Pos<FaceType> &startPos, std::list<LCEdge> &lcEdges)
+    {
       assert(!startPos.IsNull());
       assert(mesh.vert.size() == _lcVertices.size());
+      LCEdge *lcedgeP = NULL;
       vcg::face::Pos<FaceType> runPos = startPos;
       vcg::face::JumpingPos<FaceType> vStarPos;
       vcg::face::Pos<FaceType> eStarPos;
-      LCEdgeIndex edgeInd = -1;
-      size_t nEdges = 0;
 
-      // count how many edges
-      do {
-        ++nEdges;
-        // go on the next edge
-        runPos.FlipE();
-        runPos.FlipV();
-        runPos.FlipE();
-        runPos.FlipF();
-      } while (runPos != startPos && !runPos.IsBorder());
-      if (runPos.IsBorder())
-        ++nEdges;
-
-      // resize the vector of edges
-      lcEdges.resize(nEdges);
-      for (size_t e = 0; e < nEdges; ++e)
-        lcEdges[e].reset();
-
+      lcEdges.clear();
       /// compute the star of all the vertices and edges seen from the polychord
       runPos = startPos;
       do {
-        // access the next lcedge
-        edgeInd++;
+        // create a lcedge
+        lcEdges.push_back(LCEdge());
+        lcedgeP = &lcEdges.back();
         // set lcvertices references
-        lcEdges[edgeInd].v1 = vcg::tri::Index(mesh, runPos.V());
-        lcEdges[edgeInd].v2 = vcg::tri::Index(mesh, runPos.VFlip());
+        lcedgeP->v1 = &_lcVertices[vcg::tri::Index(mesh, runPos.V())];
+        lcedgeP->v2 = &_lcVertices[vcg::tri::Index(mesh, runPos.VFlip())];
         // add this edge to its vertices edge-stars
-        _lcVertices[lcEdges[edgeInd].v1].edges.insert(edgeInd);
-        _lcVertices[lcEdges[edgeInd].v2].edges.insert(edgeInd);
+        lcedgeP->v1->edges.insert(lcedgeP);
+        lcedgeP->v2->edges.insert(lcedgeP);
         // compute the star of this edge
-        lcEdges[edgeInd].star.insert(lcEdges[edgeInd].v1);  // its endpoints, clearly
-        lcEdges[edgeInd].star.insert(lcEdges[edgeInd].v2);  // its endpoints, clearly
+        lcedgeP->star.insert(lcedgeP->v1);  // its endpoints, clearly
+        lcedgeP->star.insert(lcedgeP->v2);  // its endpoints, clearly
         // navigate over the other vertices of this facet
         eStarPos = runPos;
         eStarPos.FlipE();
         eStarPos.FlipV();
         while (eStarPos.V() != runPos.VFlip()) {
           // add current vertex to the star of this edge
-          lcEdges[edgeInd].star.insert(vcg::tri::Index(mesh, eStarPos.V()));
+          lcedgeP->star.insert(&_lcVertices[vcg::tri::Index(mesh, eStarPos.V())]);
           // add this edge to the edge-star of the current vertex
-          _lcVertices[vcg::tri::Index(mesh, eStarPos.V())].edges.insert(edgeInd);
+          _lcVertices[vcg::tri::Index(mesh, eStarPos.V())].edges.insert(lcedgeP);
           // go on
           eStarPos.FlipE();
           eStarPos.FlipV();
@@ -446,9 +441,9 @@ public:
           eStarPos.FlipV();
           while (eStarPos.V() != runPos.VFlip()) {
             // add current vertex to the star of this edge
-            lcEdges[edgeInd].star.insert(vcg::tri::Index(mesh, eStarPos.V()));
+            lcedgeP->star.insert(&_lcVertices[vcg::tri::Index(mesh, eStarPos.V())]);
             // add this edge to the edge-star of the current vertex
-            _lcVertices[vcg::tri::Index(mesh, eStarPos.V())].edges.insert(edgeInd);
+            _lcVertices[vcg::tri::Index(mesh, eStarPos.V())].edges.insert(lcedgeP);
             // go on
             eStarPos.FlipE();
             eStarPos.FlipV();
@@ -459,15 +454,15 @@ public:
         runPos.FlipV();
         vStarPos.Set(runPos.F(), runPos.E(), runPos.V());
         // v2 is in its star
-        _lcVertices[vcg::tri::Index(mesh, vStarPos.V())].star.insert(vcg::tri::Index(mesh, vStarPos.V()));
+        _lcVertices[vcg::tri::Index(mesh, vStarPos.V())].star.insert(&_lcVertices[vcg::tri::Index(mesh, vStarPos.V())]);
         do {
           vStarPos.FlipV();
           vStarPos.FlipE();
           while (vStarPos.V() != runPos.V()) {
             // add the current vertex to the v2 star
-            _lcVertices[vcg::tri::Index(mesh, runPos.V())].star.insert(vcg::tri::Index(mesh, vStarPos.V()));
+            _lcVertices[vcg::tri::Index(mesh, runPos.V())].star.insert(&_lcVertices[vcg::tri::Index(mesh, vStarPos.V())]);
             // add v2 to the star of the current vertex
-            _lcVertices[vcg::tri::Index(mesh, vStarPos.V())].star.insert(vcg::tri::Index(mesh, runPos.V()));
+            _lcVertices[vcg::tri::Index(mesh, vStarPos.V())].star.insert(&_lcVertices[vcg::tri::Index(mesh, runPos.V())]);
             vStarPos.FlipV();
             vStarPos.FlipE();
           }
@@ -478,15 +473,15 @@ public:
         runPos.FlipV();
         vStarPos.Set(runPos.F(), runPos.E(), runPos.V());
         // v1 is in its star
-        _lcVertices[vcg::tri::Index(mesh, vStarPos.V())].star.insert(vcg::tri::Index(mesh, vStarPos.V()));
+        _lcVertices[vcg::tri::Index(mesh, vStarPos.V())].star.insert(&_lcVertices[vcg::tri::Index(mesh, vStarPos.V())]);
         do {
           vStarPos.FlipV();
           vStarPos.FlipE();
           while (vStarPos.V() != runPos.V()) {
             // add the current vertex to the v2 star
-            _lcVertices[vcg::tri::Index(mesh, runPos.V())].star.insert(vcg::tri::Index(mesh, vStarPos.V()));
+            _lcVertices[vcg::tri::Index(mesh, runPos.V())].star.insert(&_lcVertices[vcg::tri::Index(mesh, vStarPos.V())]);
             // add v2 to the star of the current vertex
-            _lcVertices[vcg::tri::Index(mesh, vStarPos.V())].star.insert(vcg::tri::Index(mesh, runPos.V()));
+            _lcVertices[vcg::tri::Index(mesh, vStarPos.V())].star.insert(&_lcVertices[vcg::tri::Index(mesh, runPos.V())]);
             vStarPos.FlipV();
             vStarPos.FlipE();
           }
@@ -510,39 +505,58 @@ public:
 
     /**
      * @brief LC_SimulateEdgeCollapse simulates an edge collapse by updating the stars involved.
-     * @param lcEdges The vector of edges.
-     * @param edgeInd The in dex of the edge to collapse.
+     * @param edge The edge to collapse.
      */
-    void LC_SimulateEdgeCollapse (std::vector<LCEdge> &lcEdges, const LCEdgeIndex edgeInd) {
+    void LC_SimulateEdgeCollapse (LCEdge &edge) {
       // let v1 and v2 be the two end points
-      LCVertexIndex v1 = lcEdges[edgeInd].v1;
-      LCVertexIndex v2 = lcEdges[edgeInd].v2;
-      LCVertexIndex v = -1;
+      LCVertex *v1 = edge.v1;
+      LCVertex *v2 = edge.v2;
+      assert(v1 && v2);
+      LCVertex *v = NULL;
+      LCEdge *e = NULL;
 
       /// v2 merges into v1:
       // star(v1) = star(v1) U star(v2)
-      _lcVertices[v1].star.insert(_lcVertices[v2].star.begin(), _lcVertices[v2].star.end());
-      _lcVertices[v1].star.erase(v2);     // remove v2 from v1-star
-      _lcVertices[v2].star.erase(v1);     // remove v1 from v2-star
+      v1->star.insert(v2->star.begin(), v2->star.end());
+      v1->star.erase(v2);     // remove v2 from v1-star
+      v2->star.erase(v1);     // remove v1 from v2-star
       // foreach v | v2 \in star(v) [i.e. v \in star(v2)]
       //      star(v) = star(v) U {v1} \ {v2}
-      for (typename LCVertexStar::iterator vIt = _lcVertices[v2].star.begin(); vIt != _lcVertices[v2].star.end(); ++vIt) {
+      for (typename LCVertexStar::iterator vIt = v2->star.begin(); vIt != v2->star.end(); vIt++) {
         v = *vIt;
-        if (v == v2)  // skip v2 itself
-          continue;
-        _lcVertices[v].star.insert(v1);
-        _lcVertices[v].star.erase(v2);
+        v->star.insert(v1);
+        v->star.erase(v2);
       }
       /// update the star of the edges which include v1 and v2 in their star
       // foreach e | v1 \in star(e) ^ v2 \in star(e)
       //      star(e) = star(e) \ {v1,v2} U {v1}
-      for (typename LCEdgeStar::iterator eIt = _lcVertices[v1].edges.begin(); eIt != _lcVertices[v1].edges.end(); ++eIt)
-        lcEdges[*eIt].star.erase(v2);
-      for (typename LCEdgeStar::iterator eIt = _lcVertices[v2].edges.begin(); eIt != _lcVertices[v2].edges.end(); ++eIt) {
-        lcEdges[*eIt].star.erase(v2);
-        lcEdges[*eIt].star.insert(v1);
+      for (typename LCEdgeStar::iterator eIt = v1->edges.begin(); eIt != v1->edges.end(); eIt++) {
+        e = *eIt;
+        e->star.erase(v2);
+      }
+      for (typename LCEdgeStar::iterator eIt = v2->edges.begin(); eIt != v2->edges.end(); eIt++) {
+        e = *eIt;
+        e->star.erase(v2);
+        e->star.insert(v1);
       }
     }
+
+    /**
+     * @brief The LCVertex struct represents a vertex for the Link Conditions.
+     */
+    struct LCVertex {
+      LCVertexStar star;  // vertex star
+      LCEdgeStar edges;   // list of edges whose star involves this vertex
+    };
+
+    /**
+     * @brief The LCEdge struct represents an edge for the Link Conditions.
+     */
+    struct LCEdge {
+      LCVertex *v1, *v2;          // endpoints
+      LCVertexStar star;          // edge star
+      LCEdge() {v1 = v2 = NULL;}  // default contructor
+    };
 
     /**
      * @brief _lcVertices is a vector of vertex stars for the link conditions.
@@ -552,58 +566,6 @@ public:
 
 
   // PolychordCollapse's methods begin here::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-
-//  /**
-//   * @brief CheckConsistent checks for consistency. ONLY FOR DEBUG.
-//   * @param mesh
-//   * @return
-//   */
-//  static bool CheckConsistent(PolyMeshType &mesh) {
-//    vcg::tri::RequirePerFaceFlags(mesh);
-//    vcg::tri::RequirePerFaceColor(mesh);
-//    for (size_t f = 0; f < mesh.face.size(); ++f) {
-//      if (!mesh.face[f].IsD()) {
-//        for (int v = 0; v < mesh.face[f].VN(); ++v) {
-//          if (!vcg::face::IsBorder(mesh.face[f], v)) {
-//            if (mesh.face[f].FFp(v)->IsD()) {
-//              mesh.face[f].C() = vcg::Color4b(vcg::Color4b::Magenta);
-//              return false;
-//            }
-//            if (mesh.face[f].FFp(v)->FFp(mesh.face[f].FFi(v)) != &mesh.face[f]) {
-//              mesh.face[f].C() = vcg::Color4b(vcg::Color4b::Yellow);
-//              return false;
-//            }
-//          }
-//        }
-//      }
-//    }
-//    return true;
-//  }
-
-  /**
-   * @brief MarkPolychords marks the chords of the polychord starting at startPos.
-   * @param mesh The input mesh.
-   * @param startPos The starting position.
-   * @param chords The vector of chords.
-   * @param mark The current mark, used to identify quads already visited.
-   */
-  static void MarkPolychords(const PolyMeshType &mesh,
-                             const vcg::face::Pos<FaceType> &startPos,
-                             PC_Chords &chords,
-                             const unsigned long mark) {
-    vcg::face::Pos<FaceType> runPos = startPos;
-    std::pair<size_t, unsigned char> face_edge(std::numeric_limits<size_t>::max(), 0);
-    do {
-      assert(runPos.F()->VN() == 4);
-      face_edge.first = vcg::tri::Index(mesh, runPos.F());
-      face_edge.second = runPos.E() % 2;
-      chords[face_edge].mark = mark;
-      runPos.FlipE();
-      runPos.FlipV();
-      runPos.FlipE();
-      runPos.FlipF();
-    } while (runPos != startPos && !runPos.IsBorder());
-  }
 
   /**
    * @brief CollapsePolychord performs all checks and then collapses the polychord.
@@ -641,9 +603,10 @@ public:
                                           PC_Chords &chords,
                                           LinkConditions &linkConditions,
                                           const bool checkSing = true) {
-    vcg::tri::RequireFFAdjacency(mesh);
+    vcg::tri::RequirePerVertexFlags(mesh);
+    vcg::tri::RequirePerFaceFlags(mesh);
 
-    if (mesh.IsEmpty())
+    if (mesh.face.size() == 0)
       return PC_VOID;
 
     if (pos.IsNull())
@@ -654,7 +617,7 @@ public:
     // check if the sequence of facets is a polychord and find the starting coord
     PC_ResultCode resultCode = CheckPolychordFindStartPosition(pos, startPos, checkSing);
     // if not successful, visit the sequence for marking it and return
-    if (resultCode != PC_SUCCESS && resultCode != PC_SINGSIDEA && resultCode != PC_SINGSIDEB) {
+    if (resultCode != PC_SUCCESS) {
       // if not manifold, visit the entire polychord ending on the non-manifold edge
       if (resultCode == PC_NOTMANIF) {
         tempPos = pos;
@@ -677,41 +640,33 @@ public:
           tempPos.FlipV();
           tempPos.FlipE();
         } while (tempPos != startPos);
-        VisitPolychord(mesh, startPos, chords, mark, resultCode);
-        return resultCode;
       }
       VisitPolychord(mesh, startPos, chords, mark, resultCode);
       return resultCode;
     }
     // check if the link conditions are satisfied
+    bool lc = linkConditions.CheckLinkConditions(mesh, startPos);
     // if not satisfied, visit the sequence for marking it and return
-    if (!linkConditions.CheckLinkConditions(mesh, startPos)) {
+    if (!lc) {
       VisitPolychord(mesh, startPos, chords, mark, PC_NOLINKCOND);
       return PC_NOLINKCOND;
     }
-    // mark the polychord's chords
-    MarkPolychords(mesh, startPos, chords, mark);
     // check if the polychord does not intersect itself
+    bool si = IsPolychordSelfIntersecting(mesh, startPos, chords, mark);
     // if it self-intersects, visit the polychord for marking it and return
-    if (IsPolychordSelfIntersecting(mesh, startPos, chords, mark)) {
+    if (si) {
       VisitPolychord(mesh, startPos, chords, mark, PC_SELFINTERSECT);
       return PC_SELFINTERSECT;
-    }
-    // check if manifoldness remains
-    // if it will loose manifoldness, visit the sequence for marking it and return
-    if (!WillPolychordBeManifold(mesh, startPos, chords, mark)) {
-      VisitPolychord(mesh, startPos, chords, mark, PC_NOMOREMANIF);
-      return PC_NOMOREMANIF;
     }
     // at this point the polychord is collapsable, visit it for marking
     VisitPolychord(mesh, startPos, chords, mark, PC_SUCCESS);
 
     // now collapse
     CoordType point;
-//    int valenceA = 0, valenceB = 0;
+    int valenceA = 0, valenceB = 0;
     vcg::face::Pos<FaceType> runPos = startPos;
     vcg::face::JumpingPos<FaceType> tmpPos;
-//    bool onSideA = false, onSideB = false;
+    bool onSideA = false, onSideB = false;
     vcg::face::Pos<FaceType> sideA, sideB;
     typedef std::queue<VertexPointer *> FacesVertex;
     typedef std::pair<VertexPointer, FacesVertex> FacesVertexPair;
@@ -725,14 +680,43 @@ public:
     std::queue<VertexPointer> verticesToDeleteQueue;
     std::queue<FacePointer> facesToDeleteQueue;
 
+    if (checkSing) {
+      do {
+        runPos.FlipV();
+        valenceB = runPos.NumberOfIncidentVertices();
+        tmpPos.Set(runPos.F(), runPos.E(), runPos.V());
+        if (tmpPos.FindBorder())
+          valenceB++;
+        runPos.FlipV();
+        valenceA = runPos.NumberOfIncidentVertices();
+        tmpPos.Set(runPos.F(), runPos.E(), runPos.V());
+        if (tmpPos.FindBorder())
+          valenceA++;
+        if (valenceA != 4)
+          onSideA = true;
+        if (valenceB != 4)
+          onSideB = true;
+        assert(!onSideA || !onSideB);
+
+        if (runPos != startPos && runPos.IsBorder())
+          break;
+
+        // go on next edge/face
+        runPos.FlipE();
+        runPos.FlipV();
+        runPos.FlipE();
+        runPos.FlipF();
+      } while (runPos != startPos);
+    }
+
     runPos = startPos;
     do {
       // compute new vertex
       point = (runPos.V()->P() + runPos.VFlip()->P()) / 2.f;
       if (checkSing) {
-        if (resultCode == PC_SINGSIDEA)
+        if (onSideA)
           point = runPos.V()->P();
-        else if (resultCode == PC_SINGSIDEB)
+        if (onSideB)
           point = runPos.VFlip()->P();
       }
       runPos.V()->P() = point;
@@ -800,9 +784,9 @@ public:
       // compute new vertex on the last (border) edge
       point = (runPos.V()->P() + runPos.VFlip()->P()) / 2.f;
       if (checkSing) {
-        if (resultCode == PC_SINGSIDEA)
+        if (onSideA)
           point = runPos.V()->P();
-        else if (resultCode == PC_SINGSIDEB)
+        if (onSideB)
           point = runPos.VFlip()->P();
       }
       runPos.V()->P() = point;
@@ -860,7 +844,7 @@ public:
   static void CollapseAllPolychords (PolyMeshType &mesh, const bool checkSing = true) {
     vcg::tri::RequireFFAdjacency(mesh);
 
-    if (mesh.IsEmpty())
+    if (mesh.FN() == 0)
       return;
 
     vcg::face::Pos<FaceType> pos;
@@ -876,8 +860,6 @@ public:
     while (!chords.End()) {
       // get the current coord
       chords.GetCurrent(face_edge);
-      resultCode = chords[face_edge].q;
-      assert(resultCode == PC_VOID);
       // construct a pos on the face and edge of the current coord
       pos.Set(&mesh.face[face_edge.first], face_edge.second, mesh.face[face_edge.first].V(face_edge.second));
       // (try to) collapse the polychord
@@ -886,81 +868,7 @@ public:
       chords.Next();
 
       // increment the mark
-      ++mark;
-      if (mark == std::numeric_limits<unsigned long>::max()) {
-        chords.ResetMarks();
-        mark = 0;
-      }
-    }
-  }
-
-  /**
-   * @brief FindPolychords lists all the valid polychords starting position of a mesh.
-   * @param mesh The input mesh.
-   * @param polychords The container of results.
-   * @param loopsOnly true if closed polychords only must be listed, false for all polychords.
-   */
-  static void FindPolychords (PolyMeshType &mesh, std::deque< vcg::face::Pos<FaceType> > &polychords, const bool loopsOnly = false) {
-    vcg::tri::RequireFFAdjacency(mesh);
-
-    polychords.clear();
-
-    if (mesh.IsEmpty())
-      return;
-
-    vcg::face::Pos<FaceType> pos, startPos;
-    PC_ResultCode resultCode;
-    std::pair<size_t, unsigned char> face_edge;
-    // construct the vector of chords
-    PC_Chords chords(mesh);
-    unsigned long mark = 0;
-
-    // iterate over all the chords
-    while (!chords.End()) {
-      // get the current coord
-      chords.GetCurrent(face_edge);
-      // construct a pos on the face and edge of the current coord
-      pos.Set(&mesh.face[face_edge.first], face_edge.second, mesh.face[face_edge.first].V(face_edge.second));
-
-      // check and find start pos
-      resultCode = CheckPolychordFindStartPosition(pos, startPos, false);
-      // visit the polychord
-      if (resultCode == PC_SUCCESS || resultCode == PC_SINGBOTH || resultCode == PC_SINGSIDEA || resultCode == PC_SINGSIDEB) {
-        VisitPolychord(mesh, startPos, chords, mark, PC_OTHER);
-        // store a new polychord
-        if (!loopsOnly)
-          polychords.push_back(startPos);
-        else if (!startPos.IsBorder())
-          polychords.push_back(startPos);
-      } else {
-        if (resultCode == PC_NOTMANIF) {
-          pos = startPos;
-          VisitPolychord(mesh, pos, chords, mark, resultCode);
-          if (pos.IsManifold() && !pos.IsBorder()) {
-            pos.FlipF();
-            VisitPolychord(mesh, pos, chords, mark, resultCode);
-          }
-        } else if (resultCode == PC_NOTQUAD) {
-          // if not quad, visit all the polychords passing through this coord
-          pos = startPos;
-          do {
-            if (!pos.IsBorder()) {
-              pos.FlipF();
-              VisitPolychord(mesh, pos, chords, mark, resultCode);
-              pos.FlipF();
-            }
-            pos.FlipV();
-            pos.FlipE();
-          } while (pos != startPos);
-          VisitPolychord(mesh, startPos, chords, mark, resultCode);
-        }
-        VisitPolychord(mesh, startPos, chords, mark, resultCode);
-      }
-
-      // go to the next coord
-      chords.Next();
-      // increment the mark
-      ++mark;
+      mark++;
       if (mark == std::numeric_limits<unsigned long>::max()) {
         chords.ResetMarks();
         mark = 0;
@@ -971,16 +879,14 @@ public:
   /**
    * @brief SplitPolychord splits a polychord into n polychords by inserting all the needed faces.
    * @param mesh is the input polygonal mesh.
-   * @param pos is a position into the polychord (not necessarily the starting border). It will be updated with changes.
+   * @param pos is a position into the polychord (not necessarily the starting border).
    * @param n is the number of polychords to replace the input one.
    * @param facesToUpdate is a vector of face pointers to be updated after re-allocation.
    * @param verticesToUpdate is a vector of vertex pointers to be updated after re-allocation.
    */
-  static void SplitPolychord (PolyMeshType &mesh, vcg::face::Pos<FaceType> &pos, const size_t n,
-                              std::vector<FacePointer *> &facesToUpdate, std::vector<VertexPointer *> &verticesToUpdate) {
-    vcg::tri::RequireFFAdjacency(mesh);
-    vcg::tri::RequirePerFaceFlags(mesh);
-
+  static void SplitPolychord (PolyMeshType &mesh, const vcg::face::Pos<FaceType> &pos, const size_t n,
+                              std::vector<FacePointer *> &facesToUpdate = std::vector<FacePointer *>(),
+                              std::vector<VertexPointer *> &verticesToUpdate = std::vector<VertexPointer *>()) {
     if (mesh.IsEmpty())
       return;
     if (pos.IsNull())
@@ -988,72 +894,67 @@ public:
     if (n <= 1)
       return;
 
-    // remember which face vertex has pos, for later updating
-    int posVInd = pos.VInd();
+    // find the real starting position (is the polychord a strip or a ring?) and count how many faces there are
+    size_t fn = 0;
+    bool polyBorderFound = false;
+    vcg::face::Pos<FaceType> startPos = pos;
+    do {
+      // check if all faces are 4-sided
+      if (startPos.F()->VN() != 4)
+        return;
+      // check manifoldness
+      if (IsVertexAdjacentToAnyNonManifoldEdge(startPos))
+        return;
 
-    vcg::face::Pos<FaceType> startPos, runPos;
-    PC_ResultCode result = CheckPolychordFindStartPosition(pos, startPos, false);
-    if (result != PC_SUCCESS && result != PC_SINGBOTH && result != PC_SINGSIDEA && result != PC_SINGSIDEB)
-      return;
+      // increase the number of faces
+      fn++;
 
-    // since every face has an orientation, ensure that the new polychords are inserted on the right of the starting pos
+      // go on the opposite edge
+      startPos.FlipE();
+      startPos.FlipV();
+      startPos.FlipE();
+
+      // if the first border has been reached, go on the other direction to find the other border
+      if (!polyBorderFound && startPos != pos && startPos.IsBorder()) {
+        // check manifoldness
+        if (IsVertexAdjacentToAnyNonManifoldEdge(startPos))
+          return;
+        startPos = pos;
+        polyBorderFound = true;
+      }
+
+      // if the other border has been reached, stop
+      if (polyBorderFound && startPos.IsBorder()) {
+        // check manifoldness
+        if (IsVertexAdjacentToAnyNonManifoldEdge(startPos))
+          return;
+        break;
+      }
+
+      // check manifoldness
+      if (!startPos.IsManifold())
+        return;
+      // go onto the next face
+      startPos.FlipF();
+    } while (startPos != pos);
+
+    // as every face has an orientation, ensure that the new polychords are inserted on the right of the starting pos
     startPos.FlipE();
     int e = startPos.E();
     startPos.FlipE();
-    if (startPos.F()->Next(startPos.E()) == e)
+    if (startPos.F()->Next(startPos.E()) != e)
       startPos.FlipV();
 
-    // clear flags
-    vcg::tri::UpdateFlags<PolyMeshType>::FaceClearV(mesh);
-    vcg::tri::UpdateFlags<PolyMeshType>::FaceClearS(mesh);
-
-    // count how many faces there are
-    size_t fn1 = 0, fn2 = 0;
-    runPos = startPos;
-    do {
-      // increase the number of faces
-      if (runPos.F()->IsV()) {
-        ++fn2;
-        --fn1;
-        runPos.F()->SetS();
-      } else {
-        ++fn1;
-        runPos.F()->SetV();
-      }
-
-      // go onto the next face
-      runPos.FlipE();
-      runPos.FlipV();
-      runPos.FlipE();
-      runPos.FlipF();
-    } while (!runPos.IsBorder() && runPos != startPos);
-
-    // clear flags
-    runPos = startPos;
-    do {
-      // clear visited
-      runPos.F()->ClearV();
-      // go onto the next face
-      runPos.FlipE();
-      runPos.FlipV();
-      runPos.FlipE();
-      runPos.FlipF();
-    } while (!runPos.IsBorder() && runPos != startPos);
-
     // compute the number of faces and vertices that must be added to the mesh in order to insert the new polychords
-    size_t FN = fn1 * (n - 1) + fn2 * (n * n - 1);
-    size_t VN = fn1 * (n - 1) + fn2 * (n + 1) * (n - 1);
+    size_t FN = fn * (n - 1);
+    size_t VN = FN;
     if (startPos.IsBorder())
       VN += n - 1;
 
-    // add the pos to update face and vertex pointer to the list of things to update after re-allocation
-    facesToUpdate.push_back(&pos.F());
-    verticesToUpdate.push_back(&pos.V());
     // add the starting position's face and vertex pointers to the list of things to update after re-allocation
     facesToUpdate.push_back(&startPos.F());
     verticesToUpdate.push_back(&startPos.V());
 
-    runPos.SetNull();
     // add faces to the mesh
     FaceIterator firstAddedFaceIt = vcg::tri::Allocator<PolyMeshType>::AddFaces(mesh, FN, facesToUpdate);
     // add vertices to the mesh
@@ -1062,513 +963,125 @@ public:
     // delete the added starting position's face and vertex pointers
     facesToUpdate.pop_back();
     verticesToUpdate.pop_back();
-    // delete the added pos to update face and vertex pointers
-    facesToUpdate.pop_back();
-    verticesToUpdate.pop_back();
 
     // allocate and initialize 4 vertices and ffAdj for each new face
-    for (FaceIterator fIt = firstAddedFaceIt; fIt != mesh.face.end(); ++fIt) {
+    for (FaceIterator fIt = firstAddedFaceIt; fIt != mesh.face.end(); fIt++) {
       fIt->Alloc(4);
-      for (size_t j = 0; j < 4; ++j) {
+      for (size_t j = 0; j < 4; j++) {
         fIt->FFp(j) = &*fIt;
         fIt->FFi(j) = j;
       }
     }
 
-    // two structures to store temporary face data and splitting information
-    struct FaceData {
-      FacePointer                 faceP;
-      std::vector<FacePointer>    ffpAdj;
-      std::vector<int>            ffiAdj;
-      std::vector<VertexPointer>  fvpAdj;
-      FaceData() : faceP(0), ffpAdj(4, 0), ffiAdj(4, 0), fvpAdj(4, 0) { }
-    };
-    struct FaceSubdivision {
-      int                                   firstEdge;
-      int                                   firstVertex;
-      std::vector< std::vector<FaceData> >  subfaces;
-    };
-#if __cplusplus >= 201103L
-    std::unordered_map<FacePointer,FaceSubdivision>                     faceSubdivisions;
-    typename std::unordered_map<FacePointer,FaceSubdivision>::iterator  faceSubdivisionsIt;
-    typename std::unordered_map<FacePointer,FaceSubdivision>::iterator  faceSubdivisionsPrevIt;
-    typename std::unordered_map<FacePointer,FaceSubdivision>::iterator  faceSubdivisionsNeighbourIt;
-#else
-    std::map<FacePointer,FaceSubdivision                                faceSubdivisions;
-    typename std::map<FacePointer,FaceSubdivision>::iterator            faceSubdivisionsIt;
-    typename std::map<FacePointer,FaceSubdivision>::iterator            faceSubdivisionsPrevIt;
-    typename std::map<FacePointer,FaceSubdivision>::iterator            faceSubdivisionsNeighbourIt;
-#endif
-    // structure to store temporary data to assign at external faces (close to polychord)
-    struct ExternalFaceData {
-      FacePointer faceTo;
-      FacePointer faceFrom;
-      int         edgeTo;
-      int         edgeFrom;
-      ExternalFaceData() : faceTo(0), faceFrom(0), edgeTo(0), edgeFrom(0) { }
-      ExternalFaceData(const FacePointer &ft,
-                       const FacePointer &ff,
-                       const int et,
-                       const int ef) : faceTo(ft), faceFrom(ff), edgeTo(et), edgeFrom(ef) { }
-    };
-    std::list<ExternalFaceData>                                         externalFaces;
-    typename std::list<ExternalFaceData>::iterator                      externalFacesIt;
+    // some variables
+    size_t ln = fn;
+    if (startPos.IsBorder())
+      ln++;
+    FacePointer lf = NULL;        // face on the left to the current one
+    int lfre = 0;                 // right edge of lf
+    VertexPointer * lfbrV = NULL; // address of the bottom-right vertex pointer of lf
+    VertexPointer * lftrV = NULL; // address of the top-right vertex pointer of lf
+    CoordType lvP;
+    CoordType svP;
+    typedef std::pair<FacePointer,int>    FaceEdge;
+    typedef std::pair<FaceEdge,FaceEdge>  FaceFaceAdj;
+    typedef std::pair<VertexPointer *,VertexPointer>  FaceVertexAdj;
+    std::queue<FaceFaceAdj>   ffAdjQueue;   // face-to-face adjacency queue
+    std::queue<FaceVertexAdj> fvAdjQueue;   // face-to-vertex adjacency queue
+    bool currentFaceBottomIsBorder = false;
 
-    int leftEdge, rightEdge, topEdge, bottomEdge, blVInd, brVInd, tlVInd, trVInd;
-    int pleftEdge, prightEdge, ptopEdge, pbottomEdge, pblVInd, pbrVInd, ptlVInd, ptrVInd;
-    CoordType fromPoint, toPoint;
-    FacePointer faceP;
-    // first pass: make subdivisions
-    runPos = startPos;
-    do {
-      // create temporary data
-      if (!runPos.F()->IsV()) {
-        runPos.F()->SetV();
-        faceSubdivisionsIt = faceSubdivisions.insert(std::make_pair(runPos.F(), FaceSubdivision())).first;
-        faceSubdivisionsIt->second.firstEdge = runPos.E();
-        faceSubdivisionsIt->second.firstVertex = runPos.VInd();
-        if (runPos.F()->IsS())
-          faceSubdivisionsIt->second.subfaces.resize(n, std::vector<FaceData>(n));
-        else
-          faceSubdivisionsIt->second.subfaces.resize(1, std::vector<FaceData>(n));
-        // assign face pointers
-        faceSubdivisionsIt->second.subfaces.at(0).at(0).faceP = runPos.F();
-        for (size_t j = 1; j < n; ++j, ++firstAddedFaceIt)
-          faceSubdivisionsIt->second.subfaces.at(0).at(j).faceP = &*firstAddedFaceIt;
-        for (size_t i = 1; i < faceSubdivisionsIt->second.subfaces.size(); ++i)
-          for (size_t j = 0; j < n; ++j, ++firstAddedFaceIt)
-            faceSubdivisionsIt->second.subfaces.at(i).at(j).faceP = &*firstAddedFaceIt;
-        // internal face pointers adj
-        rightEdge = runPos.F()->Next(runPos.E());
-        leftEdge = runPos.F()->Prev(runPos.E());
-        for (size_t i = 0; i < faceSubdivisionsIt->second.subfaces.size(); ++i)
-          for (size_t j = 0; j < n - 1; ++j) {
-            faceSubdivisionsIt->second.subfaces.at(i).at(j).ffpAdj[rightEdge] = faceSubdivisionsIt->second.subfaces.at(i).at(j+1).faceP;
-            faceSubdivisionsIt->second.subfaces.at(i).at(j).ffiAdj[rightEdge] = leftEdge;
-            faceSubdivisionsIt->second.subfaces.at(i).at(j+1).ffpAdj[leftEdge] = faceSubdivisionsIt->second.subfaces.at(i).at(j).faceP;
-            faceSubdivisionsIt->second.subfaces.at(i).at(j+1).ffiAdj[leftEdge] = rightEdge;
-          }
-        topEdge = runPos.F()->Next(rightEdge);
-        bottomEdge = runPos.E();
-        for (size_t i = 0; i < faceSubdivisionsIt->second.subfaces.size() - 1; ++i)
-          for (size_t j = 0; j < n; ++j) {
-            faceSubdivisionsIt->second.subfaces.at(i).at(j).ffpAdj[topEdge] = faceSubdivisionsIt->second.subfaces.at(i+1).at(j).faceP;
-            faceSubdivisionsIt->second.subfaces.at(i).at(j).ffiAdj[topEdge] = bottomEdge;
-            faceSubdivisionsIt->second.subfaces.at(i+1).at(j).ffpAdj[bottomEdge] = faceSubdivisionsIt->second.subfaces.at(i).at(j).faceP;
-            faceSubdivisionsIt->second.subfaces.at(i+1).at(j).ffiAdj[bottomEdge] = topEdge;
-          }
-        // assign old vertex pointers
-        blVInd = runPos.VInd();
-        brVInd = runPos.F()->Next(blVInd);
-        trVInd = runPos.F()->Next(brVInd);
-        tlVInd = runPos.F()->Next(trVInd);
-        faceSubdivisionsIt->second.subfaces.front().front().fvpAdj.at(blVInd) = runPos.F()->V(blVInd);
-        faceSubdivisionsIt->second.subfaces.front().back().fvpAdj.at(brVInd) = runPos.F()->V(brVInd);
-        faceSubdivisionsIt->second.subfaces.back().back().fvpAdj.at(trVInd) = runPos.F()->V(trVInd);
-        faceSubdivisionsIt->second.subfaces.back().front().fvpAdj.at(tlVInd) = runPos.F()->V(tlVInd);
-        // assign new internal vertex pointers
-        for (size_t i = 0; i < faceSubdivisionsIt->second.subfaces.size() - 1; ++i)
-          for (size_t j = 0; j < n - 1; ++j, ++firstAddedVertexIt) {
-            faceSubdivisionsIt->second.subfaces.at(i).at(j).fvpAdj.at(trVInd) = &*firstAddedVertexIt;
-            faceSubdivisionsIt->second.subfaces.at(i).at(j+1).fvpAdj.at(tlVInd) = &*firstAddedVertexIt;
-            faceSubdivisionsIt->second.subfaces.at(i+1).at(j).fvpAdj.at(brVInd) = &*firstAddedVertexIt;
-            faceSubdivisionsIt->second.subfaces.at(i+1).at(j+1).fvpAdj.at(blVInd) = &*firstAddedVertexIt;
-          }
-      }
-
+    // scan the polychord and add adj into queues
+    vcg::face::Pos<FaceType> runPos = startPos;
+    for (size_t i = 0; i < fn; i++) {
+      // store links to the current left face
+      lf = runPos.F();
+      currentFaceBottomIsBorder = runPos.IsBorder();
+      lvP = runPos.VFlip()->P();
+      svP = (runPos.V()->P() - lvP) / n;
       runPos.FlipE();
+      lfre = runPos.E();
+      lfbrV = &runPos.F()->V(runPos.VInd());
       runPos.FlipV();
+      lftrV = &runPos.F()->V(runPos.VInd());
+      // set the current line's last face's right ff adjacency
+      if (!runPos.IsBorder())
+        ffAdjQueue.push(FaceFaceAdj(FaceEdge(&*(firstAddedFaceIt + (i+1)*(n-1) - 1), 1), FaceEdge(runPos.FFlip(), runPos.F()->FFi(runPos.E()))));
+      // set the current line's last face's bottom right vertex's coords
+      (firstAddedVertexIt + (i+1)*(n-1) - 1)->P() = lvP + svP * (n - 1);
+      // set the current line's last face's bottom right vertex
+      fvAdjQueue.push(FaceVertexAdj(&(firstAddedFaceIt + (i+1)*(n-1) - 1)->V(1), runPos.VFlip()));
+      // set the current face's top left vertex
+      fvAdjQueue.push(FaceVertexAdj(&(firstAddedFaceIt + (i+1)*(n-1) - 1)->V(2), runPos.V()));
       runPos.FlipE();
-      runPos.FlipF();
-    } while (!runPos.IsBorder() && runPos != startPos);
-
-    // update subdivision iterator
-    if (runPos.IsBorder())
-      faceSubdivisionsIt = faceSubdivisions.end();
-
-    // second pass: assign edge vertices and subdivisions-to-subdivisions face-face adjacency
-    runPos = startPos;
-    do {
-      // get current and previous subdivision
-      faceSubdivisionsPrevIt = faceSubdivisionsIt;
-      faceSubdivisionsIt = faceSubdivisions.find(runPos.F());
-
-      // get original indices
-      bottomEdge = faceSubdivisionsIt->second.firstEdge;
-      rightEdge = runPos.F()->Next(bottomEdge);
-      topEdge = runPos.F()->Next(rightEdge);
-      leftEdge = runPos.F()->Next(topEdge);
-      blVInd = faceSubdivisionsIt->second.firstVertex;
-      brVInd = runPos.F()->Next(blVInd);
-      trVInd = runPos.F()->Next(brVInd);
-      tlVInd = runPos.F()->Next(trVInd);
-      if (faceSubdivisionsPrevIt != faceSubdivisions.end()) {
-        pbottomEdge = faceSubdivisionsPrevIt->second.firstEdge;
-        prightEdge = runPos.FFlip()->Next(pbottomEdge);
-        ptopEdge = runPos.FFlip()->Next(prightEdge);
-        pleftEdge = runPos.FFlip()->Next(ptopEdge);
-        pblVInd = faceSubdivisionsPrevIt->second.firstVertex;
-        pbrVInd = runPos.F()->Next(pblVInd);
-        ptrVInd = runPos.F()->Next(pbrVInd);
-        ptlVInd = runPos.F()->Next(ptrVInd);
-      }
-
-      // assign bottom edge vertices (and vertex adjacency with the previous subdivision) and face-to-face adjacency
-      if (runPos.E() == bottomEdge) {
-        // get pre-existing coords
-        fromPoint = faceSubdivisionsIt->second.subfaces.front().front().fvpAdj.at(blVInd)->P();
-        toPoint = faceSubdivisionsIt->second.subfaces.front().back().fvpAdj.at(brVInd)->P();
-        // assign new vertices
-        for (size_t j = 0; j < n - 1; ++j, ++firstAddedVertexIt) {
-          firstAddedVertexIt->P() = fromPoint + (toPoint - fromPoint) * (j + 1) / n;
-          faceSubdivisionsIt->second.subfaces.front().at(j).fvpAdj.at(brVInd) = &*firstAddedVertexIt;
-          faceSubdivisionsIt->second.subfaces.front().at(j+1).fvpAdj.at(blVInd) = &*firstAddedVertexIt;
-        }
-        if (faceSubdivisionsPrevIt != faceSubdivisions.end()) {
-          if (runPos.F()->FFi(bottomEdge) == ptopEdge) {
-            // update face-to-vertex adjacency
-            for (size_t j = 0; j < n - 1; ++j) {
-              faceSubdivisionsPrevIt->second.subfaces.back().at(j).fvpAdj.at(ptrVInd) = faceSubdivisionsIt->second.subfaces.front().at(j).fvpAdj.at(brVInd);
-              faceSubdivisionsPrevIt->second.subfaces.back().at(j+1).fvpAdj.at(ptlVInd) = faceSubdivisionsIt->second.subfaces.front().at(j+1).fvpAdj.at(blVInd);
-            }
-            // update face-to-face adjacency
-            for (size_t j = 0; j < n; ++j) {
-              faceSubdivisionsIt->second.subfaces.front().at(j).ffpAdj.at(bottomEdge) = faceSubdivisionsPrevIt->second.subfaces.back().at(j).faceP;
-              faceSubdivisionsIt->second.subfaces.front().at(j).ffiAdj.at(bottomEdge) = ptopEdge;
-              faceSubdivisionsPrevIt->second.subfaces.back().at(j).ffpAdj.at(ptopEdge) = faceSubdivisionsIt->second.subfaces.front().at(j).faceP;
-              faceSubdivisionsPrevIt->second.subfaces.back().at(j).ffiAdj.at(ptopEdge) = bottomEdge;
-            }
-          } else if (runPos.F()->FFi(bottomEdge) == prightEdge) {
-            // update face-to-vertex adjacency
-            for (size_t i = 0; i < n - 1; ++i) {
-              faceSubdivisionsPrevIt->second.subfaces.at(i).back().fvpAdj.at(ptrVInd) = faceSubdivisionsIt->second.subfaces.front().at(n-i-1).fvpAdj.at(blVInd);
-              faceSubdivisionsPrevIt->second.subfaces.at(i+1).back().fvpAdj.at(pbrVInd) = faceSubdivisionsIt->second.subfaces.front().at(n-i-2).fvpAdj.at(brVInd);
-            }
-            // update face-to-face adjacency
-            for (size_t j = 0; j < n; ++j) {
-              faceSubdivisionsIt->second.subfaces.front().at(j).ffpAdj.at(bottomEdge) = faceSubdivisionsPrevIt->second.subfaces.at(n-j-1).back().faceP;
-              faceSubdivisionsIt->second.subfaces.front().at(j).ffiAdj.at(bottomEdge) = prightEdge;
-              faceSubdivisionsPrevIt->second.subfaces.at(n-j-1).back().ffpAdj.at(prightEdge) = faceSubdivisionsIt->second.subfaces.front().at(j).faceP;
-              faceSubdivisionsPrevIt->second.subfaces.at(n-j-1).back().ffiAdj.at(prightEdge) = bottomEdge;
-            }
-          } else {
-            // must be pleftEdge
-            // update face-to-vertex adjacency
-            for (size_t i = 0; i < n - 1; ++i) {
-              faceSubdivisionsPrevIt->second.subfaces.at(i).front().fvpAdj.at(ptlVInd) = faceSubdivisionsIt->second.subfaces.front().at(i).fvpAdj.at(brVInd);
-              faceSubdivisionsPrevIt->second.subfaces.at(i+1).front().fvpAdj.at(pblVInd) = faceSubdivisionsIt->second.subfaces.front().at(i+1).fvpAdj.at(blVInd);
-            }
-            // update face-to-face adjacency
-            for (size_t j = 0; j < n; ++j) {
-              faceSubdivisionsIt->second.subfaces.front().at(j).ffpAdj.at(bottomEdge) = faceSubdivisionsPrevIt->second.subfaces.at(j).front().faceP;
-              faceSubdivisionsIt->second.subfaces.front().at(j).ffiAdj.at(bottomEdge) = pleftEdge;
-              faceSubdivisionsPrevIt->second.subfaces.at(j).front().ffpAdj.at(pleftEdge) = faceSubdivisionsIt->second.subfaces.front().at(j).faceP;
-              faceSubdivisionsPrevIt->second.subfaces.at(j).front().ffiAdj.at(pleftEdge) = bottomEdge;
-            }
-          }
-        } else {
-          // must be on border
-          // update face-to-face adjacency
-          for (size_t j = 0; j < n; ++j) {
-            faceSubdivisionsIt->second.subfaces.front().at(j).ffpAdj.at(bottomEdge) = faceSubdivisionsIt->second.subfaces.front().at(j).faceP;
-            faceSubdivisionsIt->second.subfaces.front().at(j).ffiAdj.at(bottomEdge) = bottomEdge;
-          }
-        }
-      } else if (runPos.E() == leftEdge) {
-        // get pre-existing coords
-        fromPoint = faceSubdivisionsIt->second.subfaces.front().front().fvpAdj.at(blVInd)->P();
-        toPoint = faceSubdivisionsIt->second.subfaces.back().front().fvpAdj.at(tlVInd)->P();
-        // assign new vertices
-        for (size_t i = 0; i < n - 1; ++i, ++firstAddedVertexIt) {
-          firstAddedVertexIt->P() = fromPoint + (toPoint - fromPoint) * (i + 1) / n;
-          faceSubdivisionsIt->second.subfaces.at(i).front().fvpAdj.at(tlVInd) = &*firstAddedVertexIt;
-          faceSubdivisionsIt->second.subfaces.at(i+1).front().fvpAdj.at(blVInd) = &*firstAddedVertexIt;
-        }
-        // can't be on border
-        if (runPos.F()->FFi(leftEdge) == ptopEdge) {
-          // update face-to-vertex adjacency
-          for (size_t j = 0; j < n - 1; ++j) {
-            faceSubdivisionsPrevIt->second.subfaces.back().at(j).fvpAdj.at(ptrVInd) = faceSubdivisionsIt->second.subfaces.at(n-j-1).front().fvpAdj.at(blVInd);
-            faceSubdivisionsPrevIt->second.subfaces.back().at(j+1).fvpAdj.at(ptlVInd) = faceSubdivisionsIt->second.subfaces.at(n-j-2).front().fvpAdj.at(tlVInd);
-          }
-          // update face-to-face adjacency
-          for (size_t i = 0; i < n; ++i) {
-            faceSubdivisionsIt->second.subfaces.at(i).front().ffpAdj.at(leftEdge) = faceSubdivisionsPrevIt->second.subfaces.back().at(n-i-1).faceP;
-            faceSubdivisionsIt->second.subfaces.at(i).front().ffiAdj.at(leftEdge) = ptopEdge;
-            faceSubdivisionsPrevIt->second.subfaces.back().at(n-i-1).ffpAdj.at(ptopEdge) = faceSubdivisionsIt->second.subfaces.at(i).front().faceP;
-            faceSubdivisionsPrevIt->second.subfaces.back().at(n-i-1).ffiAdj.at(ptopEdge) = leftEdge;
-          }
-        } else if (runPos.F()->FFi(leftEdge) == prightEdge) {
-          // update face-to-vertex adjacency
-          for (size_t i = 0; i < n - 1; ++i) {
-            faceSubdivisionsPrevIt->second.subfaces.at(i).back().fvpAdj.at(ptrVInd) = faceSubdivisionsIt->second.subfaces.at(i).front().fvpAdj.at(tlVInd);
-            faceSubdivisionsPrevIt->second.subfaces.at(i+1).back().fvpAdj.at(pbrVInd) = faceSubdivisionsIt->second.subfaces.at(i+1).front().fvpAdj.at(blVInd);
-          }
-          // update face-to-face adjacency
-          for (size_t i = 0; i < n; ++i) {
-            faceSubdivisionsIt->second.subfaces.at(i).front().ffpAdj.at(leftEdge) = faceSubdivisionsPrevIt->second.subfaces.at(i).back().faceP;
-            faceSubdivisionsIt->second.subfaces.at(i).front().ffiAdj.at(leftEdge) = prightEdge;
-            faceSubdivisionsPrevIt->second.subfaces.at(i).back().ffpAdj.at(prightEdge) = faceSubdivisionsIt->second.subfaces.at(i).front().faceP;
-            faceSubdivisionsPrevIt->second.subfaces.at(i).back().ffiAdj.at(prightEdge) = leftEdge;
-          }
-        } else {
-          // must be runPos.F()->FFi(leftEdge) == pleftEdge
-          // update face-to-vertex adjacency
-          for (size_t i = 0; i < n - 1; ++i) {
-            faceSubdivisionsPrevIt->second.subfaces.at(i).front().fvpAdj.at(ptlVInd) = faceSubdivisionsIt->second.subfaces.front().at(n-i-1).fvpAdj.at(blVInd);
-            faceSubdivisionsPrevIt->second.subfaces.at(i+1).front().fvpAdj.at(pblVInd) = faceSubdivisionsIt->second.subfaces.front().at(n-i-2).fvpAdj.at(tlVInd);
-          }
-          // update face-to-face adjacency
-          for (size_t i = 0; i < n; ++i) {
-            faceSubdivisionsIt->second.subfaces.at(i).front().ffpAdj.at(leftEdge) = faceSubdivisionsPrevIt->second.subfaces.at(n-i-1).front().faceP;
-            faceSubdivisionsIt->second.subfaces.at(i).front().ffiAdj.at(leftEdge) = pleftEdge;
-            faceSubdivisionsPrevIt->second.subfaces.at(n-i-1).front().ffpAdj.at(pleftEdge) = faceSubdivisionsIt->second.subfaces.at(i).front().faceP;
-            faceSubdivisionsPrevIt->second.subfaces.at(n-i-1).front().ffiAdj.at(pleftEdge) = leftEdge;
-          }
-        }
-      } else {
-        // must be runPos.E() == rightEdge
-        // get pre-existing coords
-        fromPoint = faceSubdivisionsIt->second.subfaces.front().back().fvpAdj.at(brVInd)->P();
-        toPoint = faceSubdivisionsIt->second.subfaces.back().back().fvpAdj.at(trVInd)->P();
-        // assign new vertices
-        for (size_t i = 0; i < n - 1; ++i, ++firstAddedVertexIt) {
-          firstAddedVertexIt->P() = fromPoint + (toPoint - fromPoint) * (i + 1) / n;
-          faceSubdivisionsIt->second.subfaces.at(i).back().fvpAdj.at(trVInd) = &*firstAddedVertexIt;
-          faceSubdivisionsIt->second.subfaces.at(i+1).back().fvpAdj.at(brVInd) = &*firstAddedVertexIt;
-        }
-        // can't be on border
-        if (runPos.F()->FFi(rightEdge) == ptopEdge) {
-          // update face-to-vertex adjacency
-          for (size_t j = 0; j < n - 1; ++j) {
-            faceSubdivisionsPrevIt->second.subfaces.back().at(j).fvpAdj.at(ptrVInd) = faceSubdivisionsIt->second.subfaces.at(j).back().fvpAdj.at(trVInd);
-            faceSubdivisionsPrevIt->second.subfaces.back().at(j+1).fvpAdj.at(ptlVInd) = faceSubdivisionsIt->second.subfaces.at(j+1).back().fvpAdj.at(brVInd);
-          }
-          // update face-to-face adjacency
-          for (size_t i = 0; i < n; ++i) {
-            faceSubdivisionsIt->second.subfaces.at(i).back().ffpAdj.at(rightEdge) = faceSubdivisionsPrevIt->second.subfaces.back().at(i).faceP;
-            faceSubdivisionsIt->second.subfaces.at(i).back().ffiAdj.at(rightEdge) = ptopEdge;
-            faceSubdivisionsPrevIt->second.subfaces.back().at(i).ffpAdj.at(ptopEdge) = faceSubdivisionsIt->second.subfaces.at(i).back().faceP;
-            faceSubdivisionsPrevIt->second.subfaces.back().at(i).ffiAdj.at(ptopEdge) = rightEdge;
-          }
-        } else if (runPos.F()->FFi(rightEdge) == prightEdge) {
-          // update face-to-vertex adjacency
-          for (size_t i = 0; i < n - 1; ++i) {
-            faceSubdivisionsPrevIt->second.subfaces.at(i).back().fvpAdj.at(ptrVInd) = faceSubdivisionsIt->second.subfaces.at(n-i-1).back().fvpAdj.at(brVInd);
-            faceSubdivisionsPrevIt->second.subfaces.at(i+1).back().fvpAdj.at(pbrVInd) = faceSubdivisionsIt->second.subfaces.at(n-i-2).back().fvpAdj.at(trVInd);
-          }
-          // update face-to-face adjacency
-          for (size_t i = 0; i < n; ++i) {
-            faceSubdivisionsIt->second.subfaces.at(i).back().ffpAdj.at(rightEdge) = faceSubdivisionsPrevIt->second.subfaces.at(n-i-1).back().faceP;
-            faceSubdivisionsIt->second.subfaces.at(i).back().ffiAdj.at(rightEdge) = prightEdge;
-            faceSubdivisionsPrevIt->second.subfaces.at(n-i-1).back().ffpAdj.at(prightEdge) = faceSubdivisionsIt->second.subfaces.at(i).back().faceP;
-            faceSubdivisionsPrevIt->second.subfaces.at(n-i-1).back().ffiAdj.at(prightEdge) = rightEdge;
-          }
-        } else {
-          // must be runPos.F()->FFi(rightEdge) == pleftEdge
-          // update face-to-vertex adjacency
-          for (size_t i = 0; i < n - 1; ++i) {
-            faceSubdivisionsPrevIt->second.subfaces.at(i).front().fvpAdj.at(ptlVInd) = faceSubdivisionsIt->second.subfaces.at(i).back().fvpAdj.at(trVInd);
-            faceSubdivisionsPrevIt->second.subfaces.at(i+1).front().fvpAdj.at(pblVInd) = faceSubdivisionsIt->second.subfaces.at(i+1).back().fvpAdj.at(brVInd);
-          }
-          // update face-to-face adjacency
-          for (size_t i = 0; i < n; ++i) {
-            faceSubdivisionsIt->second.subfaces.at(i).back().ffpAdj.at(rightEdge) = faceSubdivisionsPrevIt->second.subfaces.at(i).front().faceP;
-            faceSubdivisionsIt->second.subfaces.at(i).back().ffiAdj.at(rightEdge) = pleftEdge;
-            faceSubdivisionsPrevIt->second.subfaces.at(i).front().ffpAdj.at(pleftEdge) = faceSubdivisionsIt->second.subfaces.at(i).back().faceP;
-            faceSubdivisionsPrevIt->second.subfaces.at(i).front().ffiAdj.at(pleftEdge) = rightEdge;
-          }
-        }
-      }
-
-      // update subdivision's left and right sides face-to-face adjacency
-      // go on left edge
-      runPos.FlipE();
-      runPos.FlipV();
-      if (runPos.IsBorder()) {
-        if (!runPos.F()->IsS()) {
-          // must be runPos.E() == leftEdge and faceSubdivisionsIt->second.subfaces.size() == 1
-          faceSubdivisionsIt->second.subfaces.front().front().ffpAdj.at(leftEdge) = faceSubdivisionsIt->second.subfaces.front().front().faceP;
-          faceSubdivisionsIt->second.subfaces.front().front().ffiAdj.at(leftEdge) = leftEdge;
-        }
-      } else if (!runPos.FFlip()->IsV()) {
-        // must be runPos.E() == leftEdge and faceSubdivisionsIt->second.subfaces.size() == 1
-        assert(faceSubdivisionsIt->second.subfaces.size() == 1);
-        faceSubdivisionsIt->second.subfaces.front().front().ffpAdj.at(leftEdge) = runPos.FFlip();
-        faceSubdivisionsIt->second.subfaces.front().front().ffiAdj.at(leftEdge) = runPos.F()->FFi(leftEdge);
-        externalFaces.push_back(ExternalFaceData(runPos.FFlip(),
-                                                 faceSubdivisionsIt->second.subfaces.front().front().faceP,
-                                                 runPos.F()->FFi(leftEdge),
-                                                 leftEdge));
-      } else if (!runPos.FFlip()->IsS() && !runPos.F()->IsS()) {
-        // must be runPos.E() == leftEdge and faceSubdivisionsIt->second.subfaces.size() == 1
-        faceSubdivisionsNeighbourIt = faceSubdivisions.find(runPos.FFlip());
-        // must be faceSubdivisionsNeighbourIt != faceSubdivisions.end() and faceSubdivisionsNeighbourIt->second.subfaces.size() == 1
-        pbottomEdge = faceSubdivisionsNeighbourIt->second.firstEdge;
-        prightEdge = runPos.FFlip()->Next(pbottomEdge);
-        ptopEdge = runPos.FFlip()->Next(prightEdge);
-        pleftEdge = runPos.FFlip()->Next(ptopEdge);
-        if (runPos.F()->FFi(leftEdge) == pleftEdge) {
-          faceSubdivisionsIt->second.subfaces.front().front().ffpAdj.at(leftEdge) = faceSubdivisionsNeighbourIt->second.subfaces.front().front().faceP;
-          faceSubdivisionsIt->second.subfaces.front().front().ffiAdj.at(leftEdge) = pleftEdge;
-          faceSubdivisionsNeighbourIt->second.subfaces.front().front().ffpAdj.at(pleftEdge) = faceSubdivisionsIt->second.subfaces.front().front().faceP;
-          faceSubdivisionsNeighbourIt->second.subfaces.front().front().ffiAdj.at(pleftEdge) = leftEdge;
-        } else {
-          // must be runPos.F()->FFi(leftEdge) == prightEdge
-          faceSubdivisionsIt->second.subfaces.front().front().ffpAdj.at(leftEdge) = faceSubdivisionsNeighbourIt->second.subfaces.front().back().faceP;
-          faceSubdivisionsIt->second.subfaces.front().front().ffiAdj.at(leftEdge) = prightEdge;
-          faceSubdivisionsNeighbourIt->second.subfaces.front().back().ffpAdj.at(prightEdge) = faceSubdivisionsIt->second.subfaces.front().front().faceP;
-          faceSubdivisionsNeighbourIt->second.subfaces.front().back().ffiAdj.at(prightEdge) = leftEdge;
-        }
-      }
-      // go on right edge
-      runPos.FlipE();
-      runPos.FlipV();
-      runPos.FlipE();
-      if (runPos.IsBorder()) {
-        if (!runPos.F()->IsS()) {
-          // must be runPos.E() == rightEdge and faceSubdivisionsIt->second.subfaces.size() == 1
-          faceSubdivisionsIt->second.subfaces.front().back().ffpAdj.at(rightEdge) = faceSubdivisionsIt->second.subfaces.front().back().faceP;
-          faceSubdivisionsIt->second.subfaces.front().back().ffiAdj.at(rightEdge) = rightEdge;
-        }
-      } else if (!runPos.FFlip()->IsV()) {
-        // must be runPos.E() == rightEdge and faceSubdivisionsIt->second.subfaces.size() == 1
-        faceSubdivisionsIt->second.subfaces.front().back().ffpAdj.at(rightEdge) = runPos.FFlip();
-        faceSubdivisionsIt->second.subfaces.front().back().ffiAdj.at(rightEdge) = runPos.F()->FFi(rightEdge);
-        externalFaces.push_back(ExternalFaceData(runPos.FFlip(),
-                                                 faceSubdivisionsIt->second.subfaces.front().back().faceP,
-                                                 runPos.F()->FFi(rightEdge),
-                                                 rightEdge));
-      } else if (!runPos.FFlip()->IsS() && !runPos.F()->IsS()) {
-        // must be runPos.E() == rightEdge and faceSubdivisionsIt->second.subfaces.size() == 1
-        faceSubdivisionsNeighbourIt = faceSubdivisions.find(runPos.FFlip());
-        // must be faceSubdivisionsNeighbourIt != faceSubdivisions.end() and faceSubdivisionsNeighbourIt->second.subfaces.size() == 1
-        pbottomEdge = faceSubdivisionsNeighbourIt->second.firstEdge;
-        prightEdge = runPos.FFlip()->Next(pbottomEdge);
-        ptopEdge = runPos.FFlip()->Next(prightEdge);
-        pleftEdge = runPos.FFlip()->Next(ptopEdge);
-        if (runPos.F()->FFi(rightEdge) == pleftEdge) {
-          faceSubdivisionsIt->second.subfaces.front().back().ffpAdj.at(rightEdge) = faceSubdivisionsNeighbourIt->second.subfaces.front().front().faceP;
-          faceSubdivisionsIt->second.subfaces.front().back().ffiAdj.at(rightEdge) = pleftEdge;
-          faceSubdivisionsNeighbourIt->second.subfaces.front().front().ffpAdj.at(pleftEdge) = faceSubdivisionsIt->second.subfaces.front().back().faceP;
-          faceSubdivisionsNeighbourIt->second.subfaces.front().front().ffiAdj.at(pleftEdge) = rightEdge;
-        } else {
-          // must be runPos.F()->FFi(rightEdge) == prightEdge
-          faceSubdivisionsIt->second.subfaces.front().back().ffpAdj.at(rightEdge) = faceSubdivisionsNeighbourIt->second.subfaces.front().back().faceP;
-          faceSubdivisionsIt->second.subfaces.front().back().ffiAdj.at(rightEdge) = prightEdge;
-          faceSubdivisionsNeighbourIt->second.subfaces.front().back().ffpAdj.at(prightEdge) = faceSubdivisionsIt->second.subfaces.front().back().faceP;
-          faceSubdivisionsNeighbourIt->second.subfaces.front().back().ffiAdj.at(prightEdge) = rightEdge;
-        }
-      }
-
-      // go on top edge
-      runPos.FlipE();
-      runPos.FlipV();
-      if (runPos.IsBorder()) {
-        // assign top edge vertices and face-to-border adjacency
-        if (runPos.E() == topEdge) {
-          // get pre-existing coords
-          fromPoint = faceSubdivisionsIt->second.subfaces.back().front().fvpAdj.at(tlVInd)->P();
-          toPoint = faceSubdivisionsIt->second.subfaces.back().back().fvpAdj.at(trVInd)->P();
-          // assign new vertices
-          for (size_t j = 0; j < n - 1; ++j, ++firstAddedVertexIt) {
-            firstAddedVertexIt->P() = fromPoint + (toPoint - fromPoint) * (j + 1) / n;
-            faceSubdivisionsIt->second.subfaces.back().at(j).fvpAdj.at(trVInd) = &*firstAddedVertexIt;
-            faceSubdivisionsIt->second.subfaces.back().at(j+1).fvpAdj.at(tlVInd) = &*firstAddedVertexIt;
-          }
-          // update face-to-face adjacency
-          for (size_t j = 0; j < n; ++j) {
-            faceSubdivisionsIt->second.subfaces.back().at(j).ffpAdj.at(topEdge) = faceSubdivisionsIt->second.subfaces.back().at(j).faceP;
-            faceSubdivisionsIt->second.subfaces.back().at(j).ffiAdj.at(topEdge) = topEdge;
-          }
-        } else if (runPos.E() == leftEdge) {
-          // get pre-existing coords
-          fromPoint = faceSubdivisionsIt->second.subfaces.front().front().fvpAdj.at(blVInd)->P();
-          toPoint = faceSubdivisionsIt->second.subfaces.back().front().fvpAdj.at(tlVInd)->P();
-          // assign new vertices
-          for (size_t i = 0; i < n - 1; ++i, ++firstAddedVertexIt) {
-            firstAddedVertexIt->P() = fromPoint + (toPoint - fromPoint) * (i + 1) / n;
-            faceSubdivisionsIt->second.subfaces.at(i).front().fvpAdj.at(tlVInd) = &*firstAddedVertexIt;
-            faceSubdivisionsIt->second.subfaces.at(i+1).front().fvpAdj.at(blVInd) = &*firstAddedVertexIt;
-          }
-          // update face-to-face adjacency
-          for (size_t i = 0; i < n; ++i) {
-            faceSubdivisionsIt->second.subfaces.at(i).front().ffpAdj.at(leftEdge) = faceSubdivisionsIt->second.subfaces.at(i).front().faceP;
-            faceSubdivisionsIt->second.subfaces.at(i).front().ffiAdj.at(leftEdge) = leftEdge;
-          }
-        } else {
-          // must be runPos.E() == rightEdge
-          // get pre-existing coords
-          fromPoint = faceSubdivisionsIt->second.subfaces.front().back().fvpAdj.at(brVInd)->P();
-          toPoint = faceSubdivisionsIt->second.subfaces.back().back().fvpAdj.at(trVInd)->P();
-          // assign new vertices
-          for (size_t i = 0; i < n - 1; ++i, ++firstAddedVertexIt) {
-            firstAddedVertexIt->P() = fromPoint + (toPoint - fromPoint) * (i + 1) / n;
-            faceSubdivisionsIt->second.subfaces.at(i).back().fvpAdj.at(trVInd) = &*firstAddedVertexIt;
-            faceSubdivisionsIt->second.subfaces.at(i+1).back().fvpAdj.at(brVInd) = &*firstAddedVertexIt;
-          }
-          // update face-to-face adjacency
-          for (size_t i = 0; i < n; ++i) {
-            faceSubdivisionsIt->second.subfaces.at(i).back().ffpAdj.at(rightEdge) = faceSubdivisionsIt->second.subfaces.at(i).back().faceP;
-            faceSubdivisionsIt->second.subfaces.at(i).back().ffiAdj.at(rightEdge) = rightEdge;
-          }
-        }
-      } else {
-        // go onto the next face
+      if (!runPos.IsBorder())
         runPos.FlipF();
+      else
+        for (size_t j = 0; j < n-1; j++)
+          // set the current face's bottom right vertex's coords
+          (firstAddedVertexIt + (i+1)*(n-1) + j)->P() = runPos.VFlip()->P() +
+                                                        (runPos.V()->P() - runPos.VFlip()->P()) / n * (j+1);
+
+      // run horizontally on the current line of the grid
+      for (size_t j = 0; j < n-1; j++) {
+        // set the current face's left ff adj
+        ffAdjQueue.push(FaceFaceAdj(FaceEdge(lf, lfre), FaceEdge(&*(firstAddedFaceIt + i*(n-1) + j), 3)));
+        // set the current face's bottom ff adjacency
+        if (!currentFaceBottomIsBorder)
+          ffAdjQueue.push(FaceFaceAdj(FaceEdge(&*(firstAddedFaceIt + ((i+fn-1)%fn)*(n-1) + j), 2), FaceEdge(&*(firstAddedFaceIt + i*(n-1) + j), 0)));
+        // set the current face's bottom right vertex's coords
+        (firstAddedVertexIt + i*(n-1) + j)->P() = lvP + svP * (j+1);
+        // set the left face's bottom right vertex
+        fvAdjQueue.push(FaceVertexAdj(lfbrV, &*(firstAddedVertexIt + i*(n-1) + j)));
+        // set the current face's bottom left vertex
+        fvAdjQueue.push(FaceVertexAdj(&(firstAddedFaceIt + i*(n-1) + j)->V(0), &*(firstAddedVertexIt + i*(n-1) + j)));
+        // set the left face's top right vertex
+        fvAdjQueue.push(FaceVertexAdj(lftrV, &*(firstAddedVertexIt + ((i+1)%ln)*(n-1) + j)));
+        // set the current face's top left vertex
+        fvAdjQueue.push(FaceVertexAdj(&(firstAddedFaceIt + i*(n-1) + j)->V(3), &*(firstAddedVertexIt + ((i+1)%ln)*(n-1) + j)));
+
+        // update temporary variables
+        lf = &*(firstAddedFaceIt + i*(n-1) + j);
+        lfre = 1;
+        lfbrV = &(firstAddedFaceIt + i*(n-1) + j)->V(1);
+        lftrV = &(firstAddedFaceIt + i*(n-1) + j)->V(2);
       }
-    } while (!runPos.IsBorder() && runPos != startPos);
-
-    // final pass: compute coords of new internal vertices, copy all data into mesh and clear flags
-    for (faceSubdivisionsIt = faceSubdivisions.begin(); faceSubdivisionsIt != faceSubdivisions.end(); ++faceSubdivisionsIt) {
-      // clear flags
-      faceSubdivisionsIt->first->ClearV();
-      if (faceSubdivisionsIt->first->IsS())
-        faceSubdivisionsIt->first->ClearS();
-
-      // get vertex indices
-      blVInd = faceSubdivisionsIt->second.firstVertex;
-      brVInd = faceSubdivisionsIt->first->Next(blVInd);
-
-      // compute coords on bottom side and internal, horizontally
-      for (size_t i = 1; i < faceSubdivisionsIt->second.subfaces.size(); ++i) {
-        fromPoint = faceSubdivisionsIt->second.subfaces.at(i).front().fvpAdj.at(blVInd)->P();
-        toPoint = faceSubdivisionsIt->second.subfaces.at(i).back().fvpAdj.at(brVInd)->P();
-        for (size_t j = 1; j < n; ++j)
-          faceSubdivisionsIt->second.subfaces.at(i).at(j).fvpAdj.at(blVInd)->P() = fromPoint + (toPoint - fromPoint) * j / n;
-      }
-
-      // finally, copy data into mesh
-      for (size_t i = 0; i < faceSubdivisionsIt->second.subfaces.size(); ++i)
-        for (size_t j = 0; j < n; ++j) {
-          faceP = faceSubdivisionsIt->second.subfaces.at(i).at(j).faceP;
-          for (size_t k = 0; k < faceSubdivisionsIt->second.subfaces.at(i).at(j).ffpAdj.size(); ++k)
-            faceP->FFp(k) = faceSubdivisionsIt->second.subfaces.at(i).at(j).ffpAdj.at(k);
-          for (size_t k = 0; k < faceSubdivisionsIt->second.subfaces.at(i).at(j).ffiAdj.size(); ++k)
-            faceP->FFi(k) = faceSubdivisionsIt->second.subfaces.at(i).at(j).ffiAdj.at(k);
-          for (size_t k = 0; k < faceSubdivisionsIt->second.subfaces.at(i).at(j).fvpAdj.size(); ++k)
-            faceP->V(k) = faceSubdivisionsIt->second.subfaces.at(i).at(j).fvpAdj.at(k);
-        }
     }
-    // very last step: update external faces adjacency
-    for (externalFacesIt = externalFaces.begin(); externalFacesIt != externalFaces.end(); ++externalFacesIt) {
-      externalFacesIt->faceTo->FFp(externalFacesIt->edgeTo) = externalFacesIt->faceFrom;
-      externalFacesIt->faceTo->FFi(externalFacesIt->edgeTo) = externalFacesIt->edgeFrom;
+
+    // now apply ff adj changes
+    while (!ffAdjQueue.empty()) {
+      // the left/bottom face links to the right/top face
+      ffAdjQueue.front().first.first->FFp(ffAdjQueue.front().first.second) = ffAdjQueue.front().second.first;
+      ffAdjQueue.front().first.first->FFi(ffAdjQueue.front().first.second) = ffAdjQueue.front().second.second;
+      // the right/top face links to the left/bottom face
+      ffAdjQueue.front().second.first->FFp(ffAdjQueue.front().second.second) = ffAdjQueue.front().first.first;
+      ffAdjQueue.front().second.first->FFi(ffAdjQueue.front().second.second) = ffAdjQueue.front().first.second;
+      // pop from queue
+      ffAdjQueue.pop();
     }
-    // very very last step: update pos
-    pos.V() = pos.F()->V(posVInd);
+
+    // and apply fv adj changes
+    while (!fvAdjQueue.empty()) {
+      *fvAdjQueue.front().first = fvAdjQueue.front().second;
+      fvAdjQueue.pop();
+    }
   }
 
+private:
   /**
-   * @brief SplitPolychord splits a polychord into n polychords by inserting all the needed faces.
-   * @param mesh is the input polygonal mesh.
-   * @param pos is a position into the polychord (not necessarily the starting border). It will be updated with changes.
-   * @param n is the number of polychords to replace the input one.
+   * @brief IsVertexAdjacentToAnyNonManifoldEdge checks if a vertex is adjacent to any non-manifold edge.
+   * @param pos The starting position.
+   * @return true if adjacent to non-manifold edges, false otherwise.
    */
-  static void SplitPolychord (PolyMeshType &mesh, vcg::face::Pos<FaceType> &pos, const size_t n) {
-    std::vector<FacePointer *> facesToUpdate;
-    std::vector<VertexPointer *> verticesToUpdate;
-    SplitPolychord(mesh, pos, n, facesToUpdate, verticesToUpdate);
+  static bool IsVertexAdjacentToAnyNonManifoldEdge (const vcg::face::Pos<FaceType> &pos) {
+    assert(!pos.IsNull());
+    vcg::face::JumpingPos<FaceType> jmpPos;
+    jmpPos.Set(pos.F(), pos.E(), pos.V());
+    do {
+      if (!jmpPos.IsManifold())
+        return true;
+      jmpPos.NextFE();
+    } while (jmpPos != pos);
+    return false;
   }
 
   /**
@@ -1622,7 +1135,7 @@ public:
         // if the vertex is on border increment its valence by 1 (virtually connect it to a dummy vertex)
         jmpPos.Set(startPos.F(), startPos.E(), startPos.V());
         if (jmpPos.FindBorder())
-          ++valence;
+          valence++;
         if (valence != 4)
           singSideB = true;
         // a 2-valence internl vertex cause a polychord to touch itself, producing non-2manifoldness
@@ -1635,7 +1148,7 @@ public:
         // if the vertex is on border increment its valence by 1 (virtually connect it to a dummy vertex)
         jmpPos.Set(startPos.F(), startPos.E(), startPos.V());
         if (jmpPos.FindBorder())
-          ++valence;
+          valence++;
         if (valence != 4)
           singSideA = true;
         // a 2-valence internal vertex cause a polychord to touch itself, producing non-2manifoldness
@@ -1680,88 +1193,7 @@ public:
     if (!polyBorderFound && borderSideA && borderSideB)
       return PC_SINGBOTH;
 
-    // if there are singularities or borders on the side A, remember to keep coordinates on it
-    if (singSideA || borderSideA)
-      return PC_SINGSIDEA;
-    // if there are singularities or borders on the side B, remember to keep coordinates on it
-    if (singSideB || borderSideB)
-      return PC_SINGSIDEB;
-
     return PC_SUCCESS;
-  }
-
-  /**
-   * @brief VisitPolychord updates the information of a polychord.
-   * @param mesh The mesh used for getting the face index.
-   * @param startPos The starting position.
-   * @param chords The vector of chords.
-   * @param mark The mark.
-   * @param q The visiting type.
-   */
-  static void VisitPolychord (const PolyMeshType &mesh,
-                              const vcg::face::Pos<FaceType> &startPos,
-                              PC_Chords &chords,
-                              const unsigned long mark,
-                              const PC_ResultCode q) {
-    assert(!startPos.IsNull());
-    vcg::face::Pos<FaceType> tmpPos, runPos = startPos;
-    std::pair<size_t, unsigned char> face_edge(std::numeric_limits<size_t>::max(), 0);
-
-    // follow the sequence of quads
-    do {
-      // check manifoldness
-      tmpPos = runPos;
-      do {
-        if (runPos.F()->VN() != 4)  // non-quads are not visited
-          return;
-        if (!tmpPos.IsManifold()) {
-          // update current coord
-          face_edge.first = vcg::tri::Index(mesh, tmpPos.F());
-          face_edge.second = tmpPos.E()%2;
-          chords.UpdateCoord(chords[face_edge], mark, q);
-          face_edge.second = (tmpPos.E()+1)%2;
-          chords.UpdateCoord(chords[face_edge], mark, q);
-          return;
-        }
-        tmpPos.FlipV();
-        tmpPos.FlipE();
-      } while (tmpPos != runPos);
-
-      // update current coord
-      face_edge.first = vcg::tri::Index(mesh, runPos.F());
-      face_edge.second = runPos.E()%2;
-      chords.UpdateCoord(chords[face_edge], mark, q);
-      // if the polychord has to collapse, i.e. q == PC_SUCCESS, also visit the orthogonal coord
-      if (q == PC_SUCCESS) {
-        face_edge.second = (runPos.E()+1)%2;
-        chords.UpdateCoord(chords[face_edge], mark, q);
-      }
-
-      runPos.FlipE();
-      runPos.FlipV();
-      runPos.FlipE();
-      runPos.FlipF();
-    } while (runPos != startPos && !runPos.IsBorder() && runPos.F()->VN() == 4);
-    assert(runPos == startPos || vcg::face::IsBorder(*startPos.F(),startPos.E())
-           || runPos.F()->VN() != 4 || startPos.FFlip()->VN() != 4);
-  }
-
-  /**
-   * @brief IsVertexAdjacentToAnyNonManifoldEdge checks if a vertex is adjacent to any non-manifold edge.
-   * @param pos The starting position.
-   * @return true if adjacent to non-manifold edges, false otherwise.
-   */
-  static bool IsVertexAdjacentToAnyNonManifoldEdge (const vcg::face::Pos<FaceType> &pos) {
-    assert(!pos.IsNull());
-    vcg::face::JumpingPos<FaceType> jmpPos;
-    jmpPos.Set(pos.F(), pos.E(), pos.V());
-    do {
-      assert(!jmpPos.FFlip()->IsD());
-      if (!jmpPos.IsManifold())
-        return true;
-      jmpPos.NextFE();
-    } while (jmpPos != pos);
-    return false;
   }
 
   /**
@@ -1800,10 +1232,6 @@ public:
         face_edge.second = (tmpPos.E()+1)%2;
         if (chords[face_edge].mark == mark)
           return true;
-        // this should never hapen:
-        face_edge.second = tmpPos.E()%2;
-        if (chords[face_edge].mark == mark)
-          return true;
       }
       tmpPos = runPos;
       tmpPos.FlipV();
@@ -1812,10 +1240,6 @@ public:
         tmpPos.FlipF();
         face_edge.first = vcg::tri::Index(mesh, tmpPos.F());
         face_edge.second = (tmpPos.E()+1)%2;
-        if (chords[face_edge].mark == mark)
-          return true;
-        // this should never hapen:
-        face_edge.second = tmpPos.E()%2;
         if (chords[face_edge].mark == mark)
           return true;
       }
@@ -1829,161 +1253,60 @@ public:
   }
 
   /**
-   * @brief WillPolychordBeManifold checks whether a polychord starting at startPos would cause non-manifoldness
-   * if it was collapsed.
-   * @note VisitPolychord() should be called before this method.
-   * @param mesh The input mesh.
-   * @param startPos The starting Pos.
+   * @brief VisitPolychord updates the information of a polychord.
+   * @param mesh The mesh used for getting the face index.
+   * @param startPos The starting position.
    * @param chords The vector of chords.
-   * @param mark The current mark, used to identify quads already visited.
-   * @return true if manifoldness remains, false otherwise.
+   * @param mark The mark.
+   * @param q The visiting type.
    */
-  static bool WillPolychordBeManifold(const PolyMeshType &mesh,
-                                      const vcg::face::Pos<FaceType> &startPos,
-                                      PC_Chords &chords,
-                                      const unsigned long mark) {
+  static void VisitPolychord (const PolyMeshType &mesh,
+                              const vcg::face::Pos<FaceType> &startPos,
+                              PC_Chords &chords,
+                              const unsigned long mark,
+                              const PC_ResultCode q) {
     assert(!startPos.IsNull());
-    vcg::face::Pos<FaceType> runPos = startPos;
-    vcg::face::JumpingPos<FaceType> tmpPos;
-    std::pair<size_t, unsigned char> face_edge1(std::numeric_limits<size_t>::max(), 0);
-    std::pair<size_t, unsigned char> face_edge2(std::numeric_limits<size_t>::max(), 0);
-    bool in = true;
-    unsigned int nTraversal = 0;
+    vcg::face::Pos<FaceType> tmpPos, runPos = startPos;
+    std::pair<size_t, unsigned char> face_edge(std::numeric_limits<size_t>::max(), 0);
 
-    // second step: check
-    runPos = startPos;
+    if (runPos.F()->VN() != 4)  // non-quads are not visited
+      return;
+
+    // follow the sequence of quads
     do {
-      face_edge1.first = vcg::tri::Index(mesh, runPos.F());
-      face_edge1.second = runPos.E() % 2;
-      assert(chords[face_edge1].mark == mark);
-      // check one vertex
-      runPos.FlipV();
-      in = true;
-      nTraversal = 0;
-      tmpPos.Set(runPos.F(), runPos.E(), runPos.V());
+      // check manifoldness
+      tmpPos = runPos;
       do {
-        if (tmpPos.IsBorder() && in) {
-          in = false;
-          nTraversal++;
+        if (!tmpPos.IsManifold()) {
+          // update current coord
+          face_edge.first = vcg::tri::Index(mesh, tmpPos.F());
+          face_edge.second = tmpPos.E()%2;
+          chords.UpdateCoord(chords[face_edge], mark, q);
+          face_edge.second = (tmpPos.E()+1)%2;
+          chords.UpdateCoord(chords[face_edge], mark, q);
+          return;
         }
-        // go to next edge
-        tmpPos.NextFE();
-        // check if this face is already visited
-        face_edge1.first = vcg::tri::Index(mesh, tmpPos.F());
-        face_edge1.second = tmpPos.E() % 2;
-        face_edge2.first = vcg::tri::Index(mesh, tmpPos.F());
-        face_edge2.second = (tmpPos.E() + 1) % 2;
-        if (in && chords[face_edge1].mark != mark && chords[face_edge2].mark != mark) {
-          in = false;
-          ++nTraversal;
-        } else if (!in && (chords[face_edge1].mark == mark || chords[face_edge2].mark == mark)) {
-          in = true;
-          ++nTraversal;
-        }
+        tmpPos.FlipV();
+        tmpPos.FlipE();
       } while (tmpPos != runPos);
-      assert(in);
-      assert(nTraversal % 2 == 0);
-      if (nTraversal > 2)
-        return false;
 
-      // check other vertex
-      runPos.FlipV();
-      in = true;
-      nTraversal = 0;
-      tmpPos.Set(runPos.F(), runPos.E(), runPos.V());
-      do {
-        if (tmpPos.IsBorder() && in) {
-          in = false;
-          ++nTraversal;
-        }
-        // go to next edge
-        tmpPos.NextFE();
-        // check if this face is already visited
-        face_edge1.first = vcg::tri::Index(mesh, tmpPos.F());
-        face_edge1.second = tmpPos.E() % 2;
-        face_edge2.first = vcg::tri::Index(mesh, tmpPos.F());
-        face_edge2.second = (tmpPos.E() + 1) % 2;
-        if (in && chords[face_edge1].mark != mark && chords[face_edge2].mark != mark) {
-          in = false;
-          nTraversal++;
-        } else if (!in && (chords[face_edge1].mark == mark || chords[face_edge2].mark == mark)) {
-          in = true;
-          ++nTraversal;
-        }
-      } while (tmpPos != runPos);
-      assert(in);
-      assert(nTraversal % 2 == 0);
-      if (nTraversal > 2)
-        return false;
+      // update current coord
+      face_edge.first = vcg::tri::Index(mesh, runPos.F());
+      face_edge.second = runPos.E()%2;
+      chords.UpdateCoord(chords[face_edge], mark, q);
+      // if the polychord has to collapse, i.e. q == PC_SUCCESS, also visit the orthogonal coord
+      if (q == PC_SUCCESS) {
+        face_edge.second = (runPos.E()+1)%2;
+        chords.UpdateCoord(chords[face_edge], mark, q);
+      }
 
       runPos.FlipE();
       runPos.FlipV();
       runPos.FlipE();
       runPos.FlipF();
-    } while (runPos != startPos && !runPos.IsBorder());
-    if (runPos.IsBorder()) {
-      // check one vertex
-      runPos.FlipV();
-      in = true;
-      nTraversal = 0;
-      tmpPos.Set(runPos.F(), runPos.E(), runPos.V());
-      do {
-        if (tmpPos.IsBorder() && in) {
-          in = false;
-          ++nTraversal;
-        }
-        // go to next edge
-        tmpPos.NextFE();
-        // check if this face is already visited
-        face_edge1.first = vcg::tri::Index(mesh, tmpPos.F());
-        face_edge1.second = tmpPos.E() % 2;
-        face_edge2.first = vcg::tri::Index(mesh, tmpPos.F());
-        face_edge2.second = (tmpPos.E() + 1) % 2;
-        if (in && chords[face_edge1].mark != mark && chords[face_edge2].mark != mark) {
-          in = false;
-          ++nTraversal;
-        } else if (!in && (chords[face_edge1].mark == mark || chords[face_edge2].mark == mark)) {
-          in = true;
-          ++nTraversal;
-        }
-      } while (tmpPos != runPos);
-      assert(in);
-      assert(nTraversal % 2 == 0);
-      if (nTraversal > 2)
-        return false;
-
-      // check other vertex
-      runPos.FlipV();
-      in = true;
-      nTraversal = 0;
-      tmpPos.Set(runPos.F(), runPos.E(), runPos.V());
-      do {
-        if (tmpPos.IsBorder() && in) {
-          in = false;
-          ++nTraversal;
-        }
-        // go to next edge
-        tmpPos.NextFE();
-        // check if this face is already visited
-        face_edge1.first = vcg::tri::Index(mesh, tmpPos.F());
-        face_edge1.second = tmpPos.E() % 2;
-        face_edge2.first = vcg::tri::Index(mesh, tmpPos.F());
-        face_edge2.second = (tmpPos.E() + 1) % 2;
-        if (in && chords[face_edge1].mark != mark && chords[face_edge2].mark != mark) {
-          in = false;
-          ++nTraversal;
-        } else if (!in && (chords[face_edge1].mark == mark || chords[face_edge2].mark == mark)) {
-          in = true;
-          ++nTraversal;
-        }
-      } while (tmpPos != runPos);
-      assert(in);
-      assert(nTraversal % 2 == 0);
-      if (nTraversal > 2)
-        return false;
-    }
-
-    return true;
+    } while (runPos != startPos && !runPos.IsBorder() && runPos.F()->VN() == 4);
+    assert(runPos == startPos || vcg::face::IsBorder(*startPos.F(),startPos.E())
+           || runPos.F()->VN() != 4 || startPos.FFlip()->VN() != 4);
   }
 };
 

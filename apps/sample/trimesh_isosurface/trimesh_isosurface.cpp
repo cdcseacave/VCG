@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004-2016                                           \/)\/    *
+* Copyright(C) 2004-2012                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -23,6 +23,7 @@
 #include <vcg/complex/complex.h>
 #include <vcg/math/perlin_noise.h>
 #include <vcg/complex/algorithms/create/marching_cubes.h>
+#include <vcg/complex/algorithms/create/extended_marching_cubes.h>
 #include <vcg/complex/algorithms/create/mc_trivial_walker.h>
 #include <wrap/io_trimesh/export_ply.h>
 
@@ -44,20 +45,19 @@ class MyMesh		: public vcg::tri::TriMesh< std::vector< MyVertex>, std::vector< M
 
 
 
-typedef SimpleVolume<SimpleVoxel<float> > MyVolume;
+typedef SimpleVolume<SimpleVoxel> MyVolume;
 
 int main(int /*argc*/ , char **/*argv*/)
 {
     MyVolume	volume;
 
   typedef vcg::tri::TrivialWalker<MyMesh,MyVolume>	MyWalker;
-  typedef vcg::tri::MarchingCubes<MyMesh, MyWalker>	MyMarchingCubes;
-  MyWalker walker;
+    typedef vcg::tri::MarchingCubes<MyMesh, MyWalker>	MyMarchingCubes;
+    MyWalker walker;
 
 
   // Simple initialization of the volume with some cool perlin noise
-  vcg::Box3f bb(vcg::Point3f(-1,-1,-1),vcg::Point3f(1,1,1));
-  volume.Init(Point3i(64,64,64),bb);
+    volume.Init(Point3i(64,64,64));
   for(int i=0;i<64;i++)
     for(int j=0;j<64;j++)
       for(int k=0;k<64;k++)

@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004-2016                                           \/)\/    *
+* Copyright(C) 2004                                                \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -38,7 +38,7 @@ public:
 
     int n_attr;							// unique ID of the attribute
 
-    void Resize(size_t sz){((SimpleTempDataBase *)_handle)->Resize(sz);}
+    void Resize(const int & sz){((SimpleTempDataBase *)_handle)->Resize(sz);}
     void Reorder(std::vector<size_t> & newVertIndex){((SimpleTempDataBase *)_handle)->Reorder(newVertIndex);}
     bool operator<(const  PointerToAttribute    b) const {	return(_name.empty()&&b._name.empty())?(_handle < b._handle):( _name < b._name);}
 };
@@ -217,7 +217,7 @@ class TriMesh
     inline int HN() const { return hn; }
 
     /// Bounding box of the mesh
-    Box3<typename TriMesh::VertexType::CoordType::ScalarType> bbox;
+    Box3<ScalarType> bbox;
 
   /// Nomi di textures
     //
@@ -255,7 +255,6 @@ class TriMesh
         // access function
         template <class RefType>
         ATTR_TYPE & operator [](const RefType  & i){return (*_handle)[i];}
-        void resize(size_t /*size*/) { };
     };
 
     template <class ATTR_TYPE>
@@ -264,7 +263,6 @@ class TriMesh
         PerVertexAttributeHandle():AttributeHandle<ATTR_TYPE,VertContainer>(){}
                 PerVertexAttributeHandle( void *ah,const int & n):AttributeHandle<ATTR_TYPE,VertContainer>(ah,n){}
     };
-
 
     template <class ATTR_TYPE>
     class PerFaceAttributeHandle: public AttributeHandle<ATTR_TYPE,FaceContainer>{
@@ -296,17 +294,6 @@ class TriMesh
         ATTR_TYPE & operator ()(){ return *((Attribute<ATTR_TYPE> *)_handle)->attribute;}
     };
 
-    // Some common Handle typedefs to simplify use
-    typedef typename MeshType::template PerVertexAttributeHandle<ScalarType> PerVertexScalarHandle;
-    typedef typename MeshType::template PerVertexAttributeHandle<int>        PerVertexIntHandle;
-    typedef typename MeshType::template PerVertexAttributeHandle<bool>       PerVertexBoolHandle;
-    typedef typename MeshType::template PerVertexAttributeHandle<CoordType>  PerVertexCoordHandle;
-
-    typedef typename MeshType::template PerFaceAttributeHandle<ScalarType> PerFaceScalarHandle;
-    typedef typename MeshType::template PerFaceAttributeHandle<int>        PerFaceIntHandle;
-    typedef typename MeshType::template PerFaceAttributeHandle<bool>       PerFaceBoolHandle;
-    typedef typename MeshType::template PerFaceAttributeHandle<CoordType>  PerFaceCoordHandle;
-
 
     // the camera member (that should keep the intrinsics) is no more needed since 2006, when intrisncs moved into the Shot structure
     //Camera<ScalarType> camera; // intrinsic
@@ -324,13 +311,24 @@ public:
     /// Default constructor
     TriMesh()
     {
-      Clear();
+    Clear();
     }
 
     /// destructor
     ~TriMesh()
     {
-      Clear();
+        typename std::set< PointerToAttribute>::iterator i;
+        for( i = vert_attr.begin(); i != vert_attr.end(); ++i)
+            delete ((SimpleTempDataBase*)(*i)._handle);
+        for( i = edge_attr.begin(); i != edge_attr.end(); ++i)
+            delete ((SimpleTempDataBase*)(*i)._handle);
+        for( i = face_attr.begin(); i != face_attr.end(); ++i)
+            delete ((SimpleTempDataBase*)(*i)._handle);
+        for( i = mesh_attr.begin(); i != mesh_attr.end(); ++i)
+            delete ((SimpleTempDataBase*)(*i)._handle);
+
+        FaceIterator fi;
+        for(fi = face.begin(); fi != face.end(); ++fi) (*fi).Dealloc();
     }
 
      int Mem(const int & nv, const int & nf) const  {
@@ -354,62 +352,38 @@ public:
 
 
 
-  /// Function to destroy the mesh
-  void Clear()
-  {
-    for(FaceIterator fi = face.begin(); fi != face.end(); ++fi)
-      (*fi).Dealloc();
+/// Function to destroy the mesh
+void Clear()
+{
     vert.clear();
     face.clear();
     edge.clear();
-//    textures.clear();
-//    normalmaps.clear();
+//	textures.clear();
+//	normalmaps.clear();
     vn = 0;
     en = 0;
     fn = 0;
     hn = 0;
-    imark = 0;
-    C()=Color4b::Gray;
-  }
+  imark = 0;
+  attrn = 0;
+  C()=Color4b::Gray;
+}
 
+bool IsEmpty()
+{
+  return vert.empty() && edge.empty() && face.empty();
+}
 
-  void ClearAttributes()
-  {
-	  // Clear attributes
-	  typename std::set< PointerToAttribute>::iterator i;
-	  for (i = vert_attr.begin(); i != vert_attr.end(); ++i)
-		  delete ((SimpleTempDataBase*)(*i)._handle);
-	  vert_attr.clear();
+int & SimplexNumber(){ return fn;}
+int & VertexNumber(){ return vn;}
 
-	  for (i = edge_attr.begin(); i != edge_attr.end(); ++i)
-		  delete ((SimpleTempDataBase*)(*i)._handle);
-	  edge_attr.clear();
-
-	  for (i = face_attr.begin(); i != face_attr.end(); ++i)
-		  delete ((SimpleTempDataBase*)(*i)._handle);
-	  face_attr.clear();
-
-	  for (i = mesh_attr.begin(); i != mesh_attr.end(); ++i)
-		  delete ((SimpleTempDataBase*)(*i)._handle);
-	  mesh_attr.clear();
-    attrn = 0;
-  }
-
-  bool IsEmpty() const
-  {
-    return vert.empty() && edge.empty() && face.empty();
-  }
-
-  int & SimplexNumber(){ return fn;}
-  int & VertexNumber(){ return vn;}
-
-  /// The incremental mark
-  int imark;
+/// The incremental mark
+int imark;
 
 private:
     // TriMesh cannot be copied. Use Append (see vcg/complex/append.h)
   TriMesh operator =(const TriMesh &  /*m*/){assert(0);return TriMesh();}
-  TriMesh(const TriMesh & ){}
+    TriMesh(const TriMesh & ){}
 
 };	// end class Mesh
 
@@ -470,21 +444,16 @@ template <class MeshType> inline void UnMarkAll(MeshType & m)
 }
 
 
-//template < class CType0, class CType1 , class CType2, class CType3>
-//bool HasPerVertexVEAdjacency (const TriMesh < CType0, CType1, CType2, CType3> & /*m*/) {return TriMesh < CType0 , CType1, CType2, CType3>::VertContainer::value_type::HasVEAdjacency();}
-//template < class  CType0, class CType1, class CType2 , class CType3>
-//bool HasPerEdgeVEAdjacency   (const TriMesh < CType0, CType1, CType2, CType3> & /*m*/) {return TriMesh < CType0 , CType1, CType2, CType3>::EdgeContainer::value_type::HasVEAdjacency();}
+template < class CType0, class CType1 , class CType2, class CType3>
+bool HasPerVertexVEAdjacency (const TriMesh < CType0, CType1, CType2, CType3> & /*m*/) {return TriMesh < CType0 , CType1, CType2, CType3>::VertContainer::value_type::HasVEAdjacency();}
+template < class  CType0, class CType1, class CType2 , class CType3>
+bool HasPerEdgeVEAdjacency   (const TriMesh < CType0, CType1, CType2, CType3> & /*m*/) {return TriMesh < CType0 , CType1, CType2, CType3>::EdgeContainer::value_type::HasVEAdjacency();}
 
 template < class VertexType> bool VertexVectorHasVFAdjacency     (const std::vector<VertexType> &) {  return VertexType::HasVFAdjacency(); }
-template < class VertexType> bool VertexVectorHasVEAdjacency     (const std::vector<VertexType> &) {  return VertexType::HasVEAdjacency(); }
-template < class EdgeType  > bool   EdgeVectorHasVEAdjacency     (const std::vector<EdgeType  > &) {  return EdgeType::HasVEAdjacency(); }
-template < class EdgeType  > bool   EdgeVectorHasEEAdjacency     (const std::vector<EdgeType> &) {  return EdgeType::HasEEAdjacency(); }
 template < class FaceType  > bool   FaceVectorHasVFAdjacency     (const std::vector<FaceType  > &) {  return FaceType::HasVFAdjacency(); }
 
+template < class TriMeshType> bool   HasPerFaceVFAdjacency     (const TriMeshType &m) { return tri::FaceVectorHasVFAdjacency  (m.vert); }
 template < class TriMeshType> bool HasPerVertexVFAdjacency     (const TriMeshType &m) { return tri::VertexVectorHasVFAdjacency(m.vert); }
-template < class TriMeshType> bool HasPerVertexVEAdjacency     (const TriMeshType &m) { return tri::VertexVectorHasVEAdjacency(m.vert); }
-template < class TriMeshType> bool   HasPerEdgeVEAdjacency     (const TriMeshType &m) { return tri::EdgeVectorHasVEAdjacency  (m.edge); }
-template < class TriMeshType> bool   HasPerFaceVFAdjacency     (const TriMeshType &m) { return tri::FaceVectorHasVFAdjacency  (m.face); }
 
 
 template < class VertexType> bool VertexVectorHasPerVertexQuality     (const std::vector<VertexType> &) {  return VertexType::HasQuality     (); }
@@ -548,17 +517,15 @@ template < class TriMeshType> bool HasPerFaceMark        (const TriMeshType &m) 
 template < class TriMeshType> bool HasPerFaceQuality     (const TriMeshType &m) { return tri::FaceVectorHasPerFaceQuality     (m.face); }
 template < class TriMeshType> bool HasPerFaceCurvatureDir(const TriMeshType &m) { return tri::FaceVectorHasPerFaceCurvatureDir(m.face); }
 template < class TriMeshType> bool HasFFAdjacency   (const TriMeshType &m) { return tri::FaceVectorHasFFAdjacency   (m.face); }
-template < class TriMeshType> bool HasEEAdjacency   (const TriMeshType &m) { return tri::EdgeVectorHasEEAdjacency   (m.edge); }
 template < class TriMeshType> bool HasFEAdjacency   (const TriMeshType &m) { return tri::FaceVectorHasFEAdjacency   (m.face); }
 template < class TriMeshType> bool HasFVAdjacency   (const TriMeshType &m) { return tri::FaceVectorHasFVAdjacency   (m.face); }
 
 template < class TriMeshType> bool HasVFAdjacency   (const TriMeshType &m) { return tri::FaceVectorHasVFAdjacency   (m.face) && tri::VertexVectorHasVFAdjacency(m.vert);  }
-template < class TriMeshType> bool HasVEAdjacency   (const TriMeshType &m) { return tri::EdgeVectorHasVEAdjacency   (m.edge) && tri::VertexVectorHasVEAdjacency(m.vert);  }
 
 
 
-//template < class  CType0, class CType1, class CType2 , class CType3>
-//bool HasVEAdjacency (const TriMesh < CType0, CType1, CType2, CType3> & /*m*/) {return TriMesh < CType0 , CType1, CType2, CType3>::VertContainer::value_type::HasVEAdjacency();}
+template < class  CType0, class CType1, class CType2 , class CType3>
+bool HasVEAdjacency (const TriMesh < CType0, CType1, CType2, CType3> & /*m*/) {return TriMesh < CType0 , CType1, CType2, CType3>::VertContainer::value_type::HasVEAdjacency();}
 
 template < class  CType0, class CType1, class CType2 , class CType3>
 bool HasVHAdjacency (const TriMesh < CType0, CType1, CType2, CType3> & /*m*/) {return TriMesh < CType0 , CType1, CType2, CType3>::VertContainer::value_type::HasVHAdjacency();}
@@ -566,8 +533,8 @@ bool HasVHAdjacency (const TriMesh < CType0, CType1, CType2, CType3> & /*m*/) {r
 template < class  CType0, class CType1, class CType2 , class CType3>
 bool HasEVAdjacency (const TriMesh < CType0, CType1, CType2, CType3> & /*m*/) {return TriMesh < CType0 , CType1, CType2, CType3>::EdgeType::HasEVAdjacency();}
 
-//template < class  CType0, class CType1, class CType2 , class CType3>
-//bool HasEEAdjacency (const TriMesh < CType0, CType1, CType2, CType3> & /*m*/) {return TriMesh < CType0 , CType1, CType2, CType3>::EdgeType::HasEEAdjacency();}
+template < class  CType0, class CType1, class CType2 , class CType3>
+bool HasEEAdjacency (const TriMesh < CType0, CType1, CType2, CType3> & /*m*/) {return TriMesh < CType0 , CType1, CType2, CType3>::EdgeType::HasEEAdjacency();}
 
 template < class  CType0, class CType1, class CType2 , class CType3>
 bool HasEFAdjacency (const TriMesh < CType0, CType1, CType2, CType3> & /*m*/) {return TriMesh < CType0 , CType1, CType2, CType3>::EdgeType::HasEFAdjacency();}
@@ -644,7 +611,6 @@ template <class MeshType> void RequireCompactness    (MeshType &m) {
 }
 
 template <class MeshType> void RequireTriangularMesh (MeshType &m ) { if( tri::HasPolyInfo( m ) ) throw vcg::MissingTriangularRequirementException("");}
-template <class MeshType> void RequirePolygonalMesh (MeshType &m )  { if(!tri::HasPolyInfo( m ) ) throw vcg::MissingPolygonalRequirementException("");}
 
 template <class MeshType> void RequireVFAdjacency    (MeshType &m) { if(!tri::HasVFAdjacency   (m)) throw vcg::MissingComponentException("VFAdjacency"); }
 template <class MeshType> void RequireVEAdjacency    (MeshType &m) { if(!tri::HasVEAdjacency   (m)) throw vcg::MissingComponentException("VEAdjacency"); }

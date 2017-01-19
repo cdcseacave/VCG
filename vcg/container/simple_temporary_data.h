@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004-2016                                           \/)\/    *
+* Copyright(C) 2004                                                \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -32,11 +32,11 @@ class SimpleTempDataBase{
 public:
   virtual ~SimpleTempDataBase() {}
   SimpleTempDataBase() {}
-    virtual void Resize(size_t sz) = 0;
+    virtual void Resize(const int & sz) = 0;
     virtual void Reorder(std::vector<size_t> & newVertIndex)=0;
-    virtual size_t SizeOf() const  = 0;
+    virtual int SizeOf() const  = 0;
     virtual void * DataBegin() = 0;
-    virtual void * At(size_t i ) = 0;
+    virtual void * At(unsigned int i ) = 0;
 };
 
 template <class TYPE>
@@ -53,7 +53,7 @@ public:
         bool * newdataLoc = new bool[ sz ];
         if(datasize!=0) memcpy(newdataLoc,data,sizeof(datasize));
         std::swap(data,newdataLoc);
-        if(newdataLoc != 0) delete[] newdataLoc;
+        if(newdataLoc != 0) delete newdataLoc;
         datareserve = sz;
     }
 
@@ -109,9 +109,9 @@ class SimpleTempData:public SimpleTempDataBase{
     ATTR_TYPE & operator[](const typename STL_CONT::value_type & v){return data[&v-&*c.begin()];}
     ATTR_TYPE & operator[](const typename STL_CONT::value_type * v){return data[v-&*c.begin()];}
     ATTR_TYPE & operator[](const typename STL_CONT::iterator & cont){return data[&(*cont)-&*c.begin()];}
-    ATTR_TYPE & operator[](size_t i){return data[i];}
+    ATTR_TYPE & operator[](const int & i){return data[i];}
 
-    void * At(size_t i ) {return &(*this)[i];};
+    void * At(unsigned int i ) {return &(*this)[i];};
 
     // update temporary data size
     bool UpdateSize(){
@@ -123,7 +123,7 @@ class SimpleTempData:public SimpleTempDataBase{
             return true;
         }
 
-    void Resize(size_t sz){
+    void Resize(const int & sz){
         data.resize(sz);
     }
 
@@ -134,7 +134,7 @@ class SimpleTempData:public SimpleTempDataBase{
         }
     }
 
-    size_t SizeOf() const {return sizeof(ATTR_TYPE);}
+    int SizeOf() const {return sizeof(ATTR_TYPE);}
     void * DataBegin() {return data.empty()?NULL:&(*data.begin());}
 };
 
@@ -145,12 +145,12 @@ public:
     AttrType * attribute;
     Attribute(){attribute = new ATTR_TYPE();}
     ~Attribute(){delete attribute;}
-    size_t SizeOf()const {return sizeof(ATTR_TYPE);}
+    int SizeOf()const {return sizeof(ATTR_TYPE);}
     void * DataBegin(){return attribute;}
 
-    void Resize(size_t  ) {assert(0);}
+    void Resize(const int &  ) {assert(0);}
     void Reorder(std::vector<size_t> &  ){assert(0);}
-    void * At(size_t ) {assert(0);return (void*)0;}
+    void * At(unsigned int ) {assert(0);return (void*)0;}
 };
 
 } // end namespace vcg

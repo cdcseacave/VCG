@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004-2016                                           \/)\/    *
+* Copyright(C) 2004                                                \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -91,10 +91,12 @@ public:
     inline PointType MidPoint( ) const
     { return ( _p0 +  _p1) / ScalarType(2.0) ; }
       /// return the bounding box
-    inline void GetBBox(  Box2<ScalarType> &t) const
+    inline Box2<ScalarType> BBox( ) const
     {
-      t.Set(_p0);
+      Box2<ScalarType> t;
+      t.Add(_p0);
       t.Add(_p1);
+      return t;
     }
         /// returns segment length
     ScalarType Length()
@@ -157,30 +159,7 @@ Point2<ScalarType> ClosestPoint( Segment2<ScalarType> s, const Point2<ScalarType
 		return clos;
 }
 
-template <class S>
-class PointSegment2DEPFunctor {
-public:
-    typedef S ScalarType;
-    typedef Point2<ScalarType> QueryType;
-    static inline const Point2<ScalarType> &  Pos(const QueryType & qt)  {return qt;}
-
-    template <class EdgeType, class ScalarType>
-    inline bool operator () (const EdgeType & e, const Point2<ScalarType> & p,
-                             ScalarType & minDist, Point2<ScalarType> & q)
-    {
-        const Point2<typename EdgeType::ScalarType> fp = Point2<typename EdgeType::ScalarType>::Construct(p);
-        Point2<typename EdgeType::ScalarType> fq;
-        fq=ClosestPoint(e,fp);
-        ScalarType currD = (ScalarType)(fp-fq).Norm();
-
-        if (currD>minDist)return false;
-
-        minDist=currD;
-        q = Point2<ScalarType>::Construct(fq);
-        return true;
-    }
-};
-
+/*@}*/
 
 } // end namespace
 #endif

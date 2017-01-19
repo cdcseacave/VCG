@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004-2016                                           \/)\/    *
+* Copyright(C) 2004                                                \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -134,9 +134,9 @@ public:
     if (WedgeNormalEnabled) WNV.push_back(WedgeNormalTypePack());
   }
     void pop_back();
-  void resize(size_t _size)
+  void resize(const unsigned int & _size)
   {
-      size_t oldsize = BaseType::size();
+      unsigned int oldsize = BaseType::size();
     BaseType::resize(_size);
       if(oldsize<_size){
           ThisTypeIterator firstnew = BaseType::begin();
@@ -154,7 +154,7 @@ public:
     if (WedgeColorEnabled)  WCV.resize(_size);
     if (WedgeNormalEnabled) WNV.resize(_size);
    }
-  void reserve(size_t _size)
+  void reserve(const unsigned int & _size)
   {
     BaseType::reserve(_size);
 
@@ -188,46 +188,46 @@ public:
 // this function is called by the specialized Reorder function, that is called whenever someone call the allocator::CompactVertVector
 void ReorderFace(std::vector<size_t> &newFaceIndex )
 {
-    size_t i=0;
-    if (QualityEnabled)     assert( QV.size() == newFaceIndex.size() );
-    if (_ColorEnabled)       assert( CV.size() == newFaceIndex.size() );
-    if (MarkEnabled)        assert( MV.size() == newFaceIndex.size() );
-    if (NormalEnabled)      assert( NV.size() == newFaceIndex.size() );
-    if (CurvatureDirEnabled)assert(CDV.size() == newFaceIndex.size() );
-    if (VFAdjacencyEnabled) assert( AV.size() == newFaceIndex.size() );
-    if (FFAdjacencyEnabled) assert( AF.size() == newFaceIndex.size() );
-    if (WedgeTexEnabled)    assert(WTV.size() == newFaceIndex.size() );
-    if (WedgeColorEnabled)  assert(WCV.size() == newFaceIndex.size() );
-    if (WedgeNormalEnabled) assert(WNV.size() == newFaceIndex.size() );
+	size_t i=0;
+	if (QualityEnabled)     assert( QV.size() == newFaceIndex.size() );
+	if (_ColorEnabled)       assert( CV.size() == newFaceIndex.size() );
+	if (MarkEnabled)        assert( MV.size() == newFaceIndex.size() );
+	if (NormalEnabled)      assert( NV.size() == newFaceIndex.size() );
+	if (CurvatureDirEnabled)assert(CDV.size() == newFaceIndex.size() );
+	if (VFAdjacencyEnabled) assert( AV.size() == newFaceIndex.size() );
+	if (FFAdjacencyEnabled) assert( AF.size() == newFaceIndex.size() );
+	if (WedgeTexEnabled)    assert(WTV.size() == newFaceIndex.size() );
+	if (WedgeColorEnabled)  assert(WCV.size() == newFaceIndex.size() );
+	if (WedgeNormalEnabled) assert(WNV.size() == newFaceIndex.size() );
 
-    for(i=0;i<newFaceIndex.size();++i)
-        {
-            if(newFaceIndex[i] != std::numeric_limits<size_t>::max() )
-                {
-                    assert(newFaceIndex[i] <= i);
-                    if (QualityEnabled)      QV[newFaceIndex[i]] =  QV[i];
-                    if (_ColorEnabled)        CV[newFaceIndex[i]] =  CV[i];
-                    if (MarkEnabled)         MV[newFaceIndex[i]] =  MV[i];
-                    if (NormalEnabled)       NV[newFaceIndex[i]] =  NV[i];
-                    if (CurvatureDirEnabled) CDV[newFaceIndex[i]] =  CDV[i];
-                    if (VFAdjacencyEnabled)  AV[newFaceIndex[i]] =  AV[i];
-                    if (FFAdjacencyEnabled)  AF[newFaceIndex[i]] =  AF[i];
-                    if (WedgeTexEnabled)    WTV[newFaceIndex[i]] = WTV[i];
-                    if (WedgeColorEnabled)  WCV[newFaceIndex[i]] = WCV[i];
-                    if (WedgeNormalEnabled) WNV[newFaceIndex[i]] = WNV[i];
-                }
-        }
+	for(i=0;i<newFaceIndex.size();++i)
+		{
+			if(newFaceIndex[i] != std::numeric_limits<size_t>::max() )
+				{
+					assert(newFaceIndex[i] <= i);
+					if (QualityEnabled)      QV[newFaceIndex[i]] =  QV[i];
+					if (_ColorEnabled)        CV[newFaceIndex[i]] =  CV[i];
+					if (MarkEnabled)         MV[newFaceIndex[i]] =  MV[i];
+					if (NormalEnabled)       NV[newFaceIndex[i]] =  NV[i];
+					if (CurvatureDirEnabled) CDV[newFaceIndex[i]] =  CDV[i];
+					if (VFAdjacencyEnabled)  AV[newFaceIndex[i]] =  AV[i];
+					if (FFAdjacencyEnabled)  AF[newFaceIndex[i]] =  AF[i];
+					if (WedgeTexEnabled)    WTV[newFaceIndex[i]] = WTV[i];
+					if (WedgeColorEnabled)  WCV[newFaceIndex[i]] = WCV[i];
+					if (WedgeNormalEnabled) WNV[newFaceIndex[i]] = WNV[i];
+				}
+		}
 
-    if (QualityEnabled)      QV.resize(BaseType::size(),0);
-    if (_ColorEnabled)       CV.resize(BaseType::size());
-    if (MarkEnabled)         MV.resize(BaseType::size());
-    if (NormalEnabled)       NV.resize(BaseType::size());
-    if (CurvatureDirEnabled) CDV.resize(BaseType::size());
-    if (VFAdjacencyEnabled)  AV.resize(BaseType::size());
-    if (FFAdjacencyEnabled)  AF.resize(BaseType::size());
-    if (WedgeTexEnabled)    WTV.resize(BaseType::size());
-    if (WedgeColorEnabled)  WCV.resize(BaseType::size());
-    if (WedgeNormalEnabled) WNV.resize(BaseType::size());
+	if (QualityEnabled)      QV.resize(BaseType::size(),0);
+	if (_ColorEnabled)       CV.resize(BaseType::size());
+	if (MarkEnabled)         MV.resize(BaseType::size());
+	if (NormalEnabled)       NV.resize(BaseType::size());
+	if (CurvatureDirEnabled) CDV.resize(BaseType::size());
+	if (VFAdjacencyEnabled)  AV.resize(BaseType::size());
+	if (FFAdjacencyEnabled)  AF.resize(BaseType::size());
+	if (WedgeTexEnabled)    WTV.resize(BaseType::size());
+	if (WedgeColorEnabled)  WCV.resize(BaseType::size());
+	if (WedgeNormalEnabled) WNV.resize(BaseType::size());
 }
 
 ////////////////////////////////////////
@@ -235,22 +235,22 @@ void ReorderFace(std::vector<size_t> &newFaceIndex )
 
 bool IsQualityEnabled() const {return QualityEnabled;}
 void EnableQuality() {
-    assert(VALUE_TYPE::HasQualityOcf());
-    QualityEnabled=true;
-    QV.resize((*this).size(),0);
+	assert(VALUE_TYPE::HasQualityOcf());
+	QualityEnabled=true;
+	QV.resize((*this).size(),0);
 }
 
 void DisableQuality() {
-    assert(VALUE_TYPE::HasQualityOcf());
-    QualityEnabled=false;
-    QV.clear();
+	assert(VALUE_TYPE::HasQualityOcf());
+	QualityEnabled=false;
+	QV.clear();
 }
 
 bool IsColorEnabled() const {return _ColorEnabled;}
 void EnableColor() {
   assert(VALUE_TYPE::HasColorOcf());
   _ColorEnabled=true;
-  CV.resize((*this).size(),vcg::Color4b::White);
+  CV.resize((*this).size());
 }
 
 void DisableColor() {
@@ -413,10 +413,10 @@ public:
     return (*this).Base().AV[(*this).Index()]._zp[j];
   }
 
-    template <class RightFaceType>
-    void ImportData(const RightFaceType & rightF){
-        T::ImportData(rightF);
-    }
+	template <class RightFaceType>
+	void ImportData(const RightFaceType & rightF){
+		T::ImportData(rightF);
+	}
   static bool HasVFAdjacency()   {   return true; }
   static bool HasVFAdjacencyOcf()   { return true; }
 
@@ -494,41 +494,72 @@ template <class T> class Normal3dOcf: public NormalOcf<vcg::Point3d, T> {};
 /*------------------------- CurvatureDir -----------------------------------------*/
 template <class S>
 struct CurvatureDirOcfBaseType{
-        typedef Point3<S> CurVecType;
-        typedef  S   CurScalarType;
+        typedef Point3<S> VecType;
+        typedef  S   ScalarType;
         CurvatureDirOcfBaseType () {}
-        CurVecType max_dir,min_dir; // max and min curvature direction
-        CurScalarType k1,k2;// max and min curvature values
+        Point3<S>max_dir,min_dir; // max and min curvature direction
+        S k1,k2;// max and min curvature values
 };
 
 template <class A, class T> class CurvatureDirOcf: public T {
 public:
   typedef A CurvatureDirType;
-  typedef typename CurvatureDirType::CurVecType CurVecType;
-  typedef typename CurvatureDirType::CurScalarType CurScalarType;
+  typedef typename CurvatureDirType::VecType VecType;
+  typedef typename CurvatureDirType::ScalarType ScalarType;
 
   inline bool IsCurvatureDirEnabled( )  const  { return this->Base().IsCurvatureDirEnabled(); }
   static bool HasCurvatureDir()   { return true; }
   static bool HasCurvatureDirOcf()   { return true; }
 
-  CurVecType &PD1()       { assert((*this).Base().CurvatureDirEnabled); return (*this).Base().CDV[(*this).Index()].max_dir; }
-  CurVecType &PD2()       { assert((*this).Base().CurvatureDirEnabled); return (*this).Base().CDV[(*this).Index()].min_dir; }
-  CurVecType cPD1() const { assert((*this).Base().CurvatureDirEnabled); return (*this).Base().CDV[(*this).Index()].max_dir; }
-  CurVecType cPD2() const { assert((*this).Base().CurvatureDirEnabled); return (*this).Base().CDV[(*this).Index()].min_dir; }
+  VecType &PD1()       {
+    assert((*this).Base().CurvatureDirEnabled);
+    return (*this).Base().CDV[(*this).Index()].max_dir;
+  }
 
-  CurScalarType &K1()       { assert((*this).Base().NormalEnabled); return (*this).Base().CDV[(*this).Index()].k1; }
-  CurScalarType &K2()       { assert((*this).Base().NormalEnabled); return (*this).Base().CDV[(*this).Index()].k2; }
-  CurScalarType cK1() const { assert((*this).Base().NormalEnabled); return (*this).Base().CDV[(*this).Index()].k1; }
-  CurScalarType cK2() const { assert((*this).Base().NormalEnabled); return (*this).Base().CDV[(*this).Index()].k2; }
+  VecType &PD2()       {
+    assert((*this).Base().CurvatureDirEnabled);
+    return (*this).Base().CDV[(*this).Index()].min_dir;
+  }
+
+  VecType cPD1() const {
+    assert((*this).Base().CurvatureDirEnabled);
+    return (*this).Base().CDV[(*this).Index()].max_dir;
+  }
+
+  VecType cPD2() const {
+    assert((*this).Base().CurvatureDirEnabled);
+    return (*this).Base().CDV[(*this).Index()].min_dir;
+  }
+
+  ScalarType &K1()       {
+    // you cannot use Normals before enabling them with: yourmesh.face.EnableNormal()
+    assert((*this).Base().NormalEnabled);
+    return (*this).Base().CDV[(*this).Index()].k1;
+  }
+  ScalarType &K2()       {
+    // you cannot use Normals before enabling them with: yourmesh.face.EnableNormal()
+    assert((*this).Base().NormalEnabled);
+    return (*this).Base().CDV[(*this).Index()].k2;
+  }
+  ScalarType cK1() const {
+    // you cannot use Normals before enabling them with: yourmesh.face.EnableNormal()
+    assert((*this).Base().NormalEnabled);
+    return (*this).Base().CDV[(*this).Index()].k1;
+  }
+  ScalarType cK2() const {
+    // you cannot use Normals before enabling them with: yourmesh.face.EnableNormal()
+    assert((*this).Base().NormalEnabled);
+    return (*this).Base().CDV[(*this).Index()].k2;
+  }
+
 
   template <class RightFaceType>
   void ImportData(const RightFaceType & rightF){
-    if((*this).IsCurvatureDirEnabled() && rightF.IsCurvatureDirEnabled()) {
-      PD1().Import(rightF.cPD1());
-      PD2().Import(rightF.cPD2());
-      K1() = rightF.cK1();
-      K2() = rightF.cK2();
-    }
+    if((*this).IsCurvatureDirEnabled() && rightF.IsCurvatureDirEnabled())
+      PD1() = rightF.cPD1();
+    PD2() = rightF.cPD2();
+    K1() = rightF.cK1();
+    K2() = rightF.cK2();
     T::ImportData(rightF);
   }
 
@@ -641,9 +672,9 @@ template <class T> class WedgeTexCoordfOcf: public WedgeTexCoordOcf<TexCoord2<fl
 template <class A, class TT> class WedgeColorOcf: public TT {
 public:
   WedgeColorOcf(){ }
-  typedef A WedgeColorType;
-  WedgeColorType &WC(const int i)              { assert((*this).Base().WedgeColorEnabled); return (*this).Base().WCV[(*this).Index()].wc[i]; }
-  const WedgeColorType cWC(const int i) const { assert((*this).Base().WedgeColorEnabled); return (*this).Base().WCV[(*this).Index()].wc[i]; }
+  typedef A ColorType;
+  ColorType &WC(const int i)              { assert((*this).Base().WedgeColorEnabled); return (*this).Base().WCV[(*this).Index()].wc[i]; }
+  const ColorType cWC(const int i) const { assert((*this).Base().WedgeColorEnabled); return (*this).Base().WCV[(*this).Index()].wc[i]; }
   template <class RightFaceType>
   void ImportData(const RightFaceType & rightF){
     if(this->IsWedgeColorEnabled() && rightF.IsWedgeColorEnabled())
@@ -661,9 +692,9 @@ template <class T> class WedgeColor4bOcf: public WedgeColorOcf<vcg::Color4b, T> 
 template <class A, class TT> class WedgeNormalOcf: public TT {
 public:
   WedgeNormalOcf(){ }
-  typedef A WedgeNormalType;
-  WedgeNormalType &WN(const int i)              { assert((*this).Base().WedgeNormalEnabled); return (*this).Base().WNV[(*this).Index()].wn[i]; }
-  WedgeNormalType const &cWN(const int i) const { assert((*this).Base().WedgeNormalEnabled); return (*this).Base().WNV[(*this).Index()].wn[i]; }
+  typedef A NormalType;
+  NormalType &WN(const int i)              { assert((*this).Base().WedgeNormalEnabled); return (*this).Base().WNV[(*this).Index()].wn[i]; }
+  NormalType const &cWN(const int i) const { assert((*this).Base().WedgeNormalEnabled); return (*this).Base().WNV[(*this).Index()].wn[i]; }
   template <class RightFaceType>
   void ImportData(const RightFaceType & rightF){
     if(this->IsWedgeNormalEnabled() && rightF.IsWedgeNormalEnabled())
@@ -711,9 +742,9 @@ public:
 
 
 
-  inline size_t Index() const {
+  inline int Index() const {
     typename T::FaceType const *tp=static_cast<typename T::FaceType const *>(this);
-    size_t tt2=tp- &*(_ovp->begin());
+    int tt2=tp- &*(_ovp->begin());
     return tt2;
   }
 public:

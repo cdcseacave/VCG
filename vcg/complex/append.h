@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004-2016                                           \/)\/    *
+* Copyright(C) 2004                                                \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -20,12 +20,9 @@
 * for more details.                                                         *
 *                                                                           *
 ****************************************************************************/
+
 #ifndef __VCGLIB_APPEND
 #define __VCGLIB_APPEND
-
-#ifndef __VCG_MESH
-#error "This file should not be included alone. It is automatically included by complex.h"
-#endif
 
 namespace vcg {
 namespace tri {
@@ -67,8 +64,7 @@ public:
  typedef typename ConstMeshRight::FacePointer    FacePointerRight;
 
  struct Remap{
-   static size_t InvalidIndex() { return std::numeric_limits<size_t>::max(); }
-        std::vector<size_t> vert,face,edge, hedge;
+        std::vector<int> vert,face,edge, hedge;
  };
 
  static void ImportVertexAdj(MeshLeft &ml, ConstMeshRight &mr, VertexLeft &vl,   VertexRight &vr, Remap &remap ){
@@ -123,8 +119,8 @@ public:
    if(HasFEAdjacency(ml) && HasFEAdjacency(mr)){
      assert(fl.VN() == fr.VN());
      for( int vi = 0; vi < fl.VN(); ++vi ){
-       size_t idx = remap.edge[Index(mr,fr.cFEp(vi))];
-       if(idx!=Remap::InvalidIndex())
+       int idx = remap.edge[Index(mr,fr.cFEp(vi))];
+       if(idx>=0)
          fl.FEp(vi) = &ml.edge[idx];
      }
    }
@@ -133,8 +129,8 @@ public:
    if(HasFFAdjacency(ml) && HasFFAdjacency(mr)){
      assert(fl.VN() == fr.VN());
      for( int vi = 0; vi < fl.VN(); ++vi ){
-       size_t idx = remap.face[Index(mr,fr.cFFp(vi))];
-       if(idx!=Remap::InvalidIndex()){
+       int idx = remap.face[Index(mr,fr.cFFp(vi))];
+       if(idx>=0){
          fl.FFp(vi) = &ml.face[idx];
          fl.FFi(vi) = fr.cFFi(vi);
        }
@@ -220,57 +216,53 @@ static void Mesh(MeshLeft& ml, ConstMeshRight& mr, const bool selected = false, 
   Remap remap;
 
   // vertex
-  remap.vert.resize(mr.vert.size(), Remap::InvalidIndex());
+  remap.vert.resize(mr.vert.size(),-1);
   VertexIteratorLeft vp;
-  size_t svn = UpdateSelection<ConstMeshRight>::VertexCount(mr);
-  if(selected)
-      vp=Allocator<MeshLeft>::AddVertices(ml,int(svn));
-  else
-      vp=Allocator<MeshLeft>::AddVertices(ml,mr.vn);
+  int svn = UpdateSelection<ConstMeshRight>::VertexCount(mr);
+  if(selected) vp=Allocator<MeshLeft>::AddVertices(ml,svn);
+          else vp=Allocator<MeshLeft>::AddVertices(ml,mr.vn);
 
   for(VertexIteratorRight vi=mr.vert.begin(); vi!=mr.vert.end(); ++vi)
-  {
-    if(!(*vi).IsD() && (!selected || (*vi).IsS()))
-    {
-      size_t ind=Index(mr,*vi);
-      remap.vert[ind]=int(Index(ml,*vp));
+    if(!(*vi).IsD() && (!selected || (*vi).IsS())){
+      int ind=Index(mr,*vi);
+      remap.vert[ind]=Index(ml,*vp);
       ++vp;
     }
-  }
+
   // edge
-  remap.edge.resize(mr.edge.size(), Remap::InvalidIndex());
+  remap.edge.resize(mr.edge.size(),-1);
   EdgeIteratorLeft ep;
-  size_t sen = UpdateSelection<ConstMeshRight>::EdgeCount(mr);
+  int sen = UpdateSelection<ConstMeshRight>::EdgeCount(mr);
   if(selected) ep=Allocator<MeshLeft>::AddEdges(ml,sen);
           else ep=Allocator<MeshLeft>::AddEdges(ml,mr.en);
 
   for(EdgeIteratorRight ei=mr.edge.begin(); ei!=mr.edge.end(); ++ei)
     if(!(*ei).IsD() && (!selected || (*ei).IsS())){
-      size_t ind=Index(mr,*ei);
-      remap.edge[ind]=int(Index(ml,*ep));
+      int ind=Index(mr,*ei);
+      remap.edge[ind]=Index(ml,*ep);
       ++ep;
     }
 
   // face
-  remap.face.resize(mr.face.size(), Remap::InvalidIndex());
+  remap.face.resize(mr.face.size(),-1);
   FaceIteratorLeft fp;
-  size_t sfn = UpdateSelection<ConstMeshRight>::FaceCount(mr);
+  int sfn = UpdateSelection<ConstMeshRight>::FaceCount(mr);
   if(selected) fp=Allocator<MeshLeft>::AddFaces(ml,sfn);
           else fp=Allocator<MeshLeft>::AddFaces(ml,mr.fn);
 
   for(FaceIteratorRight fi=mr.face.begin(); fi!=mr.face.end(); ++fi)
     if(!(*fi).IsD() && (!selected || (*fi).IsS())){
-      size_t ind=Index(mr,*fi);
-      remap.face[ind]=int(Index(ml,*fp));
+      int ind=Index(mr,*fi);
+      remap.face[ind]=Index(ml,*fp);
       ++fp;
     }
 
   // hedge
-  remap.hedge.resize(mr.hedge.size(),Remap::InvalidIndex());
+  remap.hedge.resize(mr.hedge.size(),-1);
   for(HEdgeIteratorRight hi=mr.hedge.begin(); hi!=mr.hedge.end(); ++hi)
     if(!(*hi).IsD() && (!selected || (*hi).IsS())){
-      size_t ind=Index(mr,*hi);
-      assert(remap.hedge[ind]==Remap::InvalidIndex());
+      int ind=Index(mr,*hi);
+      assert(remap.hedge[ind]==-1);
       HEdgeIteratorLeft hp = Allocator<MeshLeft>::AddHEdges(ml,1);
       (*hp).ImportData(*(hi));
       remap.hedge[ind]=Index(ml,*hp);
@@ -300,7 +292,7 @@ static void Mesh(MeshLeft& ml, ConstMeshRight& mr, const bool selected = false, 
     }
 
   // face
-  const size_t textureOffset =  ml.textures.size();
+  const int textureOffset =  ml.textures.size();
   bool WTFlag = HasPerWedgeTexCoord(mr) && (textureOffset>0);
   for(FaceIteratorRight fi=mr.face.begin();fi!=mr.face.end();++fi)
     if(!(*fi).IsD() && (!selected || (*fi).IsS()))
@@ -313,7 +305,7 @@ static void Mesh(MeshLeft& ml, ConstMeshRight& mr, const bool selected = false, 
       }
       if(WTFlag)
         for(int i = 0; i < fl.VN(); ++i)
-          fl.WT(i).n() += short(textureOffset);
+          fl.WT(i).n() +=textureOffset;
       fl.ImportData(*fi);
       if(adjFlag)  ImportFaceAdj(ml,mr,ml.face[remap.face[Index(mr,*fi)]],*fi,remap);
 
@@ -395,10 +387,10 @@ static void Mesh(MeshLeft& ml, ConstMeshRight& mr, const bool selected = false, 
 /*! \brief Copy the second mesh over the first one.
   The first mesh is destroyed. If requested only the selected elements are copied.
 */
-static void MeshCopy(MeshLeft& ml, ConstMeshRight& mr, bool selected=false, const bool adjFlag = false)
+static void MeshCopy(MeshLeft& ml, ConstMeshRight& mr, bool selected=false)
 {
   ml.Clear();
-  Mesh(ml,mr,selected,adjFlag);
+  Mesh(ml,mr,selected);
   ml.bbox.Import(mr.bbox);
 }
 /*! \brief %Append only the selected elements of second mesh to the first one.

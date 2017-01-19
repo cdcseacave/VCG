@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004-2016                                           \/)\/    *
+* Copyright(C) 2004                                                \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -186,7 +186,7 @@ typedef Ray2<double,true> Ray2dN;
 
 	  /// returns closest point
 template <class ScalarType, bool NORM> 
-Point2<ScalarType> ClosestPoint( Ray2<ScalarType,NORM> r, const Point2<ScalarType> & p)
+Point2<ScalarType> ClosestPoint( Ray2<ScalarType,NORM> r, const Point3<ScalarType> & p) 
 {
 	ScalarType t = r.Projection(p); 
 	if (t<0) return r.Origin();

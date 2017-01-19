@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004-2016                                           \/)\/    *
+* Copyright(C) 2004                                                \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -25,6 +25,7 @@
 #ifndef __VCGLIB__SMOOTH
 #define __VCGLIB__SMOOTH
 
+#include <cmath>
 #include <vcg/space/ray3.h>
 #include <vcg/complex/algorithms/update/normal.h>
 #include <vcg/complex/algorithms/update/halfedge_topology.h>
@@ -297,8 +298,8 @@ static void VertexCoordPlanarLaplacian(MeshType &m, int step, float AngleThrRad 
         for(fi=m.face.begin();fi!=m.face.end();++fi){
                 if(!(*fi).IsD()){
                     for (int j = 0; j < 3; ++j) {
-                        if(Angle( Normal(TD[(*fi).V0(j)].sum, (*fi).P1(j), (*fi).P2(j) ),
-                                            Normal(   (*fi).P0(j)     , (*fi).P1(j), (*fi).P2(j) ) ) > AngleThrRad )
+                        if(Angle( NormalizedNormal(TD[(*fi).V0(j)].sum, (*fi).P1(j), (*fi).P2(j) ),
+                                            NormalizedNormal(   (*fi).P0(j)     , (*fi).P1(j), (*fi).P2(j) ) ) > AngleThrRad )
                             TD[(*fi).V0(j)].sum = (*fi).P0(j);
                     }
                 }
@@ -306,8 +307,8 @@ static void VertexCoordPlanarLaplacian(MeshType &m, int step, float AngleThrRad 
             for(fi=m.face.begin();fi!=m.face.end();++fi){
                 if(!(*fi).IsD()){
                     for (int j = 0; j < 3; ++j) {
-                        if(Angle( Normal(TD[(*fi).V0(j)].sum, TD[(*fi).V1(j)].sum, (*fi).P2(j) ),
-                                            Normal(   (*fi).P0(j)     ,    (*fi).P1(j),      (*fi).P2(j) ) ) > AngleThrRad )
+                        if(Angle( NormalizedNormal(TD[(*fi).V0(j)].sum, TD[(*fi).V1(j)].sum, (*fi).P2(j) ),
+                                            NormalizedNormal(   (*fi).P0(j)     ,    (*fi).P1(j),      (*fi).P2(j) ) ) > AngleThrRad )
                         {
                             TD[(*fi).V0(j)].sum = (*fi).P0(j);
                             TD[(*fi).V1(j)].sum = (*fi).P1(j);
@@ -628,50 +629,6 @@ public:
     int cnt;
 };
 
-static void PointCloudQualityAverage(MeshType &m, int neighbourSize=8, int iter=1)
-{
-  tri::RequireCompactness(m);
-  VertexConstDataWrapper<MeshType> ww(m);
-  KdTree<ScalarType> kt(ww);
-  typename KdTree<ScalarType>::PriorityQueue pq;
-  for(int k=0;k<iter;++k)
-  {
-    std::vector<ScalarType> newQVec(m.vn);
-    for(int i=0;i<m.vn;++i)
-    {
-      kt.doQueryK(m.vert[i].P(),neighbourSize,pq);
-      float qAvg=0;
-      for(int j=0;j<pq.getNofElements();++j)
-        qAvg+= m.vert[pq.getIndex(j)].Q();   
-      newQVec[i]=qAvg/float(pq.getNofElements());
-    }
-    
-    for(int i=0;i<m.vn;++i) 
-      m.vert[i].Q() = newQVec[i];
-  }    
-}
-
-static void PointCloudQualityMedian(MeshType &m, int medianSize=8)
-{
-  tri::RequireCompactness(m);
-  VertexConstDataWrapper<MeshType> ww(m);
-  KdTree<ScalarType> kt(ww);
-  typename KdTree<ScalarType>::PriorityQueue pq;
-  std::vector<ScalarType> newQVec(m.vn);
-  for(int i=0;i<m.vn;++i)
-  {
-    kt.doQueryK(m.vert[i].P(),medianSize,pq);
-    std::vector<ScalarType> qVec(pq.getNofElements());
-    for(int j=0;j<pq.getNofElements();++j)
-      qVec[j]=m.vert[pq.getIndex(j)].Q();
-    std::sort(qVec.begin(),qVec.end());
-    newQVec[i]=qVec[qVec.size()/2];
-  }
-  
-  for(int i=0;i<m.vn;++i) 
-    m.vert[i].Q() = newQVec[i];
-      
-}
 
 static void VertexQualityLaplacian(MeshType &m, int step=1, bool SmoothSelected=false)
 {
@@ -953,6 +910,7 @@ static void FaceNormalLaplacianVF(MeshType &m)
 
   for(FaceIterator fi=m.face.begin();fi!=m.face.end();++fi) if(!(*fi).IsD())
   {
+    CoordType bc=Barycenter<FaceType>(*fi);
     // 1) Clear all the visited flag of faces that are vertex-adjacent to fi
     for(int i=0;i<3;++i)
     {
@@ -1027,7 +985,7 @@ static void FaceNormalLaplacianFF(MeshType &m, int step=1, bool SmoothSelected=f
 // VF Topology
 // Normalized Face Normals
 //
-// This is the Normal Smoothing approach based on a angle thresholded weighting
+// This is the Normal Smoothing approach bsased on a angle thresholded weighting
 // sigma is in the 0 .. 1 range, it represent the cosine of a threshold angle.
 // sigma == 0 All the normals are averaged
 // sigma == 1 Nothing is averaged.
@@ -1035,51 +993,57 @@ static void FaceNormalLaplacianFF(MeshType &m, int step=1, bool SmoothSelected=f
 
 
 static void FaceNormalAngleThreshold(MeshType &m,
-                                     SimpleTempData<typename MeshType::FaceContainer,PDFaceInfo> &TD,
-                                     ScalarType sigma)
+                  SimpleTempData<typename MeshType::FaceContainer,PDFaceInfo> &TD,
+                  ScalarType sigma)
 {
-  for(FaceIterator fi=m.face.begin();fi!=m.face.end();++fi)
-  {
-    // 1) Clear all the visited flag of faces that are vertex-adjacent to fi
-    for(int i=0;i<3;++i)
+    int i;
+
+
+  FaceIterator fi;
+
+    for(fi=m.face.begin();fi!=m.face.end();++fi) if(!(*fi).IsD())
     {
-      VFLocalIterator ep(&*fi,i);
-      for (;!ep.End();++ep)
-        ep.f->ClearV();
-    }
+        CoordType bc=Barycenter<FaceType>(*fi);
+    // 1) Clear all the visited flag of faces that are vertex-adjacent to fi
+        for(i=0;i<3;++i)
+        {
+        VFLocalIterator ep(&*fi,i);
+          for (;!ep.End();++ep)
+                ep.f->ClearV();
+        }
 
     // 1) Effectively average the normals weighting them with the squared difference of the angle similarity
-    // sigma is the cosine of a threshold angle. sigma \in 0..1
-    // sigma == 0 All the normals are averaged
-    // sigma == 1 Nothing is averaged.
-    // The averaging is weighted with the difference between normals. more similar the normal more important they are.
+        // sigma is the cosine of a threshold angle. sigma \in 0..1
+        // sigma == 0 All the normals are averaged
+        // sigma == 1 Nothing is averaged.
+        // The averaging is weighted with the difference between normals. more similar the normal more important they are.
 
     CoordType normalSum=CoordType(0,0,0);
-    for(int i=0;i<3;++i)
-    {
-      VFLocalIterator ep(&*fi,i);
-      for (;!ep.End();++ep)
-      {
-        if(! (*ep.f).IsV() )
+        for(i=0;i<3;++i)
         {
+        VFLocalIterator ep(&*fi,i);
+          for (;!ep.End();++ep)
+            {
+                if(! (*ep.f).IsV() )
+                {
           ScalarType cosang=ep.f->N().dot((*fi).N());
-          // Note that if two faces form an angle larger than 90 deg, their contribution should be very very small.
-          // Without this clamping
-          cosang = math::Clamp(cosang,ScalarType(0.0001),ScalarType(1.f));
+                    // Note that if two faces form an angle larger than 90 deg, their contribution should be very very small.
+                    // Without this clamping
+                    cosang = math::Clamp(cosang,0.0001f,1.f);
           if(cosang >= sigma)
           {
             ScalarType w = cosang-sigma;
-            normalSum += ep.f->N()*(w*w);   // similar normals have a cosang very close to 1 so cosang - sigma is maximized
+                        normalSum += ep.f->N()*(w*w);   // similar normals have a cosang very close to 1 so cosang - sigma is maximized
           }
-          (*ep.f).SetV();
+                    (*ep.f).SetV();
+                }
+            }
         }
-      }
+        normalSum.Normalize();
+        TD[*fi].m=normalSum;
     }
-    normalSum.Normalize();
-    TD[*fi].m=normalSum;
-  }
 
-  for(FaceIterator fi=m.face.begin();fi!=m.face.end();++fi)
+  for(fi=m.face.begin();fi!=m.face.end();++fi)
     (*fi).N()=TD[*fi].m;
 }
 
@@ -1147,6 +1111,7 @@ static void FitMesh(MeshType &m,
              SimpleTempData<typename MeshType::FaceContainer, PDFaceInfo> &TDF,
              float lambda)
 {
+    //vcg::face::Pos<FaceType> ep;
     vcg::face::VFIterator<FaceType> ep;
     VertexIterator vi;
     for(vi=m.vert.begin();vi!=m.vert.end();++vi)
@@ -1208,47 +1173,70 @@ static void FastFitMesh(MeshType &m,
 
 
 
+static void VertexCoordPasoDoble(MeshType &m, int step, typename MeshType::ScalarType Sigma=0, int FitStep=10, typename MeshType::ScalarType FitLambda=0.05)
+{
+    SimpleTempData< typename MeshType::VertContainer, PDVertInfo> TDV(m.vert);
+    SimpleTempData< typename MeshType::FaceContainer, PDFaceInfo> TDF(m.face);
+    PDVertInfo lpzv;
+    lpzv.np=CoordType(0,0,0);
+    PDFaceInfo lpzf(CoordType(0,0,0));
+
+    assert(m.HasVFTopology());
+    m.HasVFTopology();
+    TDV.Start(lpzv);
+    TDF.Start(lpzf);
+    for(int j=0;j<step;++j)
+    {
+
+        vcg::tri::UpdateNormal<MeshType>::PerFace(m);
+        FaceNormalAngleThreshold(m,TDF,Sigma);
+        for(int k=0;k<FitStep;k++)
+            FitMesh(m,TDV,TDF,FitLambda);
+    }
+
+    TDF.Stop();
+    TDV.Stop();
+
+}
+
 // The sigma parameter affect the normal smoothing step
 
-static void VertexCoordPasoDoble(MeshType &m, int NormalSmoothStep, typename MeshType::ScalarType Sigma=0, int FitStep=50, bool SmoothSelected =false)
+static void VertexCoordPasoDobleFast(MeshType &m, int NormalSmoothStep, typename MeshType::ScalarType Sigma=0, int FitStep=50, bool SmoothSelected =false)
 {
-  tri::RequireCompactness(m);
-  tri::RequireVFAdjacency(m);
-  PDVertInfo lpzv;
-  lpzv.np=CoordType(0,0,0);
-  PDFaceInfo lpzf(CoordType(0,0,0));
+    PDVertInfo lpzv;
+    lpzv.np=CoordType(0,0,0);
+    PDFaceInfo lpzf(CoordType(0,0,0));
 
-  assert(HasPerVertexVFAdjacency(m) && HasPerFaceVFAdjacency(m));
-  SimpleTempData< typename MeshType::VertContainer, PDVertInfo> TDV(m.vert,lpzv);
-  SimpleTempData< typename MeshType::FaceContainer, PDFaceInfo> TDF(m.face,lpzf);
+    assert(HasPerVertexVFAdjacency(m) && HasPerFaceVFAdjacency(m));
+    SimpleTempData< typename MeshType::VertContainer, PDVertInfo> TDV(m.vert,lpzv);
+    SimpleTempData< typename MeshType::FaceContainer, PDFaceInfo> TDF(m.face,lpzf);
 
   for(int j=0;j<NormalSmoothStep;++j)
-    FaceNormalAngleThreshold(m,TDF,Sigma);
+       FaceNormalAngleThreshold(m,TDF,Sigma);
 
   for(int j=0;j<FitStep;++j)
     FastFitMesh(m,TDV,SmoothSelected);
 }
 
 
-static void VertexNormalPointCloud(MeshType &m, int neighborNum, int iterNum, KdTree<ScalarType> *tp=0)
+static void VertexNormalPointCloud(MeshType &m, int neighborNum, int iterNum, KdTree<float> *tp=0)
 {
-  SimpleTempData<typename MeshType::VertContainer,CoordType > TD(m.vert,CoordType(0,0,0));
+  SimpleTempData<typename MeshType::VertContainer,Point3f > TD(m.vert,Point3f(0,0,0));
   VertexConstDataWrapper<MeshType> ww(m);
-  KdTree<ScalarType> *tree=0;
-  if(tp==0) tree = new KdTree<ScalarType>(ww);
+  KdTree<float> *tree=0;
+  if(tp==0) tree = new KdTree<float>(ww);
   else tree=tp;
-  typename KdTree<ScalarType>::PriorityQueue nq;
 
-//  tree->setMaxNofNeighbors(neighborNum);
+  tree->setMaxNofNeighbors(neighborNum);
   for(int ii=0;ii<iterNum;++ii)
   {
     for (VertexIterator vi = m.vert.begin();vi!=m.vert.end();++vi)
     {
-      tree->doQueryK(vi->cP(),neighborNum,nq);
-      int neighbours = nq.getNofElements();
+      tree->doQueryK(vi->cP());
+      int neighbours = tree->getNofFoundNeighbors();
       for (int i = 0; i < neighbours; i++)
       {
-        int neightId = nq.getIndex(i);
+        int neightId = tree->getNeighborId(i);
         if(m.vert[neightId].cN()*vi->cN()>0)
           TD[vi]+= m.vert[neightId].cN();
         else
@@ -1258,7 +1246,7 @@ static void VertexNormalPointCloud(MeshType &m, int neighborNum, int iterNum, Kd
     for (VertexIterator vi = m.vert.begin();vi!=m.vert.end();++vi)
     {
       vi->N()=TD[vi];
-      TD[vi]=CoordType(0,0,0);
+      TD[vi]=Point3f(0,0,0);
     }
     tri::UpdateNormal<MeshType>::NormalizePerVertex(m);
   }
@@ -1271,7 +1259,8 @@ static void VertexNormalPointCloud(MeshType &m, int neighborNum, int iterNum, Kd
 template<class GRID, class MeshTypeTri>
 static void VertexCoordLaplacianReproject(MeshType& m, GRID& grid, MeshTypeTri& gridmesh)
 {
-    for(VertexIterator vi=m.vert.begin();vi!=m.vert.end();++vi)
+    typename MeshType::VertexIterator vi;
+    for(vi=m.vert.begin();vi!=m.vert.end();++vi)
     {
         if(! (*vi).IsD())
             VertexCoordLaplacianReproject(m,grid,gridmesh,&*vi);

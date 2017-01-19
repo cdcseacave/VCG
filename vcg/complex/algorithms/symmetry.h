@@ -1,25 +1,3 @@
-/****************************************************************************
-* VCGLib                                                            o o     *
-* Visual and Computer Graphics Library                            o     o   *
-*                                                                _   O  _   *
-* Copyright(C) 2004-2016                                           \/)\/    *
-* Visual Computing Lab                                            /\/|      *
-* ISTI - Italian National Research Council                           |      *
-*                                                                    \      *
-* All rights reserved.                                                      *
-*                                                                           *
-* This program is free software; you can redistribute it and/or modify      *   
-* it under the terms of the GNU General Public License as published by      *
-* the Free Software Foundation; either version 2 of the License, or         *
-* (at your option) any later version.                                       *
-*                                                                           *
-* This program is distributed in the hope that it will be useful,           *
-* but WITHOUT ANY WARRANTY; without even the implied warranty of            *
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the             *
-* GNU General Public License (http://www.gnu.org/licenses/gpl.txt)          *
-* for more details.                                                         *
-*                                                                           *
-****************************************************************************/
 #ifndef VCG_SYMMETRY_H
 #define VCG_SYMMETRY_H
 
@@ -32,10 +10,6 @@
 namespace vcg {
 namespace tri {
 
-//class SphereEdge;
-//class SphereFace;
-//class SphereVertex;
-
 template <class TriMeshType>
 class ExtrinsicPlaneSymmetry
 {
@@ -43,23 +17,6 @@ class ExtrinsicPlaneSymmetry
     typedef typename TriMeshType::FaceType FaceType;
     typedef typename TriMeshType::CoordType CoordType;
     typedef typename TriMeshType::ScalarType ScalarType;
-
-//    struct SphereUsedTypes : public vcg::UsedTypes<	vcg::Use<SphereVertex>::AsVertexType,
-//                                                    vcg::Use<SphereFace>::AsFaceType>{};
-
-//    class SphereVertex  : public vcg::Vertex< SphereUsedTypes,
-//                                             vcg::vertex::Coord<CoordType,ScalarType>,
-//                                             vcg::vertex::Normal<CoordType,ScalarType>,
-//                                            vcg::vertex::BitFlags>{};
-
-//    class SphereFace    : public vcg::Face< SphereUsedTypes, vcg::face::VertexRef,
-//                                            vcg::vertex::Normal<vcg::Point3<ScalarType>,ScalarType>,
-//                                            vcg::face::Mark,
-//                                            vcg::face::BitFlags,vcg::face::FFAdj> {};
-
-//    class SphereMesh : public vcg::tri::TriMesh< std::vector<SphereVertex>, std::vector<SphereFace> > {};
-
-
 
     TriMeshType &tri_mesh;
 
@@ -71,11 +28,8 @@ class ExtrinsicPlaneSymmetry
 
     std::vector<ScalarType> Votes;
 
-
-
     TriMeshType *sphere;
-
-    typename vcg::GridStaticPtr<FaceType,ScalarType> GridSph;
+    typename vcg::GridStaticPtr<FaceType> GridSph;
 
     ScalarType RadiusInterval;
     ScalarType MaxRadius;
@@ -213,7 +167,7 @@ public:
         {
             vcg::tri::UpdateTopology<TriMeshType>::FaceFace(tri_mesh);
             vcg::tri::UpdateFlags<TriMeshType>::FaceBorderFromFF(tri_mesh);
-            vcg::tri::UpdateFlags<TriMeshType>::VertexBorderFromFaceBorder(tri_mesh);
+            vcg::tri::UpdateFlags<TriMeshType>::VertexBorderFromFace(tri_mesh);
         }
         AlignZeroTr=tri_mesh.bbox.Center();
 
@@ -225,8 +179,7 @@ public:
 
         //create the sphere
         vcg::tri::Sphere<TriMeshType>(*sphere,SubDirections);
-        vcg::tri::UpdateBounding<TriMeshType>::Box(*sphere);
-		sphere->face.EnableMark();
+        sphere->UpdateAttributes();
 
         ///initialize grid
         GridSph.Set(sphere->face.begin(),sphere->face.end());

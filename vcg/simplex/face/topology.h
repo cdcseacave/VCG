@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004-2016                                           \/)\/    *
+* Copyright(C) 2004                                                \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -93,8 +93,8 @@ inline typename FaceType::ScalarType DihedralAngleRad(FaceType & f,  const int i
   VertexType *vf0 = f0->V2(i0);
   VertexType *vf1 = f1->V2(i1);
 
-  CoordType n0 = TriangleNormal(*f0).Normalize();
-  CoordType n1 = TriangleNormal(*f1).Normalize();
+  CoordType n0 = NormalizedNormal(*f0);
+  CoordType n1 = NormalizedNormal(*f1);
   ScalarType off0 = n0*vf0->P();
   ScalarType off1 = n1*vf1->P();
 
@@ -106,7 +106,7 @@ inline typename FaceType::ScalarType DihedralAngleRad(FaceType & f,  const int i
   if(fabs(dist01) > fabs(dist10)) sign = dist01;
   else sign=dist10;
 
-  ScalarType angleRad=AngleN(n0,n1);
+  ScalarType angleRad=Angle(f0->N(),f1->N());
 
   if(sign > 0 ) return angleRad;
   else return -angleRad;
@@ -321,8 +321,8 @@ void FFAttach(FaceType * &f, int z1, FaceType *&f2, int z2)
 template <class FaceType>
 void FFAttachManifold(FaceType * &f1, int z1, FaceType *&f2, int z2)
 {
-  assert(IsBorder<FaceType>(*f1,z1) || f1->FFp(z1)==0);
-  assert(IsBorder<FaceType>(*f2,z2) || f2->FFp(z2)==0);
+  assert(IsBorder<FaceType>(*f1,z1));
+  assert(IsBorder<FaceType>(*f2,z2));
   assert(f1->V0(z1) == f2->V0(z2) || f1->V0(z1) == f2->V1(z2));
   assert(f1->V1(z1) == f2->V0(z2) || f1->V1(z1) == f2->V1(z2));
   f1->FFp(z1) = f2;
@@ -468,9 +468,7 @@ bool FFLinkCondition(FaceType &f, const int z)
 
 /*! Perform a simple edge collapse
  * The edge z is collapsed and the vertex V(z) is collapsed onto the vertex V1(Z)
- * vertex V(z) is deleted and vertex V1(z) survives.
- * It assumes that the mesh is Manifold. 
- * Note that it preserves manifoldness only if FFLinkConditions are satisfied
+ * It assumes that the mesh is Manifold.
  * If the mesh is not manifold it will crash (there will be faces with deleted vertexes around)
  *           f12
  *   surV ___________
@@ -557,6 +555,7 @@ bool CheckFlipEdgeNormal(FaceType &f, const int z, const float angleRad)
 {
   typedef typename FaceType::VertexType VertexType;
   typedef typename VertexType::CoordType CoordType;
+  typedef typename VertexType::ScalarType ScalarType;
 
   VertexType *OldDiag0 = f.V0(z);
   VertexType *OldDiag1 = f.V1(z);
@@ -566,10 +565,10 @@ bool CheckFlipEdgeNormal(FaceType &f, const int z, const float angleRad)
 
   assert((NewDiag1 != NewDiag0) && (NewDiag1 != OldDiag0) && (NewDiag1 != OldDiag1));
 
-  CoordType oldN0 = Normal( NewDiag0->cP(),OldDiag0->cP(),OldDiag1->cP()).Normalize();
-  CoordType oldN1 = Normal( NewDiag1->cP(),OldDiag1->cP(),OldDiag0->cP()).Normalize();
-  CoordType newN0 = Normal( OldDiag0->cP(),NewDiag1->cP(),NewDiag0->cP()).Normalize();
-  CoordType newN1 = Normal( OldDiag1->cP(),NewDiag0->cP(),NewDiag1->cP()).Normalize();
+  CoordType oldN0 = NormalizedNormal( NewDiag0->cP(),OldDiag0->cP(),OldDiag1->cP());
+  CoordType oldN1 = NormalizedNormal( NewDiag1->cP(),OldDiag1->cP(),OldDiag0->cP());
+  CoordType newN0 = NormalizedNormal( OldDiag0->cP(),NewDiag1->cP(),NewDiag0->cP());
+  CoordType newN1 = NormalizedNormal( OldDiag1->cP(),NewDiag0->cP(),NewDiag1->cP());
   if(AngleN(oldN0,newN0) > angleRad) return false;
   if(AngleN(oldN0,newN1) > angleRad) return false;
   if(AngleN(oldN1,newN0) > angleRad) return false;
@@ -629,28 +628,13 @@ bool CheckFlipEdge(FaceType &f, int z)
 
 /*!
 * Flip the z-th edge of the face f.
-* Check for topological correctness first using <CODE>CheckFlipEdge()</CODE>.
+* Check for topological correctness first using <CODE>CheckFlipFace()</CODE>.
 *	\param f	pointer to the face
 *	\param z	the edge index
 *
-* Note: For <em>edge flip</em> we intend the swap of the diagonal of the quadrilater
+* Note: For <em>edge flip</em> we intend the swap of the diagonal of the rectangle
 *       formed by the face \a f and the face adjacent to the specified edge.
-*          
-*        0__________ 2        0__________2 
-*   -> 1|\          |         |          /|1
-*       |  \     g  |         |  g     /  |
-*       |    \      |         |w     /    |
-*       |  f  z\w   |         |    /  f  z|
-*       |        \  |         |  /        |
-*       |__________\|1 <-    1|/__________|
-*      2            0          2           0  
-* 
-* Note that, after an operation FlipEdge(f,z) 
-* to topologically revert it should be sufficient to do FlipEdge(f,z+1) 
-* (even if the mesh is actually different: f and g will be swapped)
-* 
 */
-
 template <class FaceType>
 void FlipEdge(FaceType &f, const int z)
 {
@@ -659,14 +643,14 @@ void FlipEdge(FaceType &f, const int z)
     assert( !IsBorder(f,z) );
     assert( face::IsManifold<FaceType>(f, z));
 
-    FaceType *g = f.FFp(z); // The other face 
-    int	      w = f.FFi(z); // and other side
+    FaceType *g = f.FFp(z);
+    int		 w = f.FFi(z);
 
-    assert( g->V0(w) == f.V1(z) );
-    assert( g->V1(w) == f.V0(z) );
-    assert( g->V2(w) != f.V0(z) );
-    assert( g->V2(w) != f.V1(z) );
-    assert( g->V2(w) != f.V2(z) );
+    assert( g->V(w)	== f.V1(z) );
+    assert( g->V1(w)== f.V(z) );
+    assert( g->V2(w)!= f.V(z) );
+    assert( g->V2(w)!= f.V1(z) );
+    assert( g->V2(w)!= f.V2(z) );
 
     f.V1(z) = g->V2(w);
     g->V1(w) = f.V2(z);
@@ -700,7 +684,6 @@ void FlipEdge(FaceType &f, const int z)
         g->FFp(w)->FFp( g->FFi(w) ) = g;
         g->FFp(w)->FFi( g->FFi(w) ) = w;
     }
-    
 }
 
 template <class FaceType>
@@ -811,7 +794,7 @@ void VVExtendedStarVF(typename FaceType::VertexType* vp,
             for (unsigned int i=0;i<vertVec.size();i++)
             {
                 std::vector<VertexType *> Vtemp;
-                vcg::face::VVStarVF<FaceType>(vertVec[i],Vtemp);
+                vcg::face::VVStarVF<FaceType>(vp,Vtemp);
                 toAdd.insert(toAdd.end(),Vtemp.begin(),Vtemp.end());
             }
             vertVec.insert(vertVec.end(),toAdd.begin(),toAdd.end());
@@ -834,6 +817,7 @@ void VFStarVF( typename FaceType::VertexType* vp,
                std::vector<FaceType *> &faceVec,
                std::vector<int> &indexes)
 {
+    typedef typename FaceType::VertexType* VertexPointer;
     faceVec.clear();
     indexes.clear();
     face::VFIterator<FaceType> vfi(vp);
@@ -978,7 +962,7 @@ void VVOrderedStarFF(Pos<FaceType> &startPos,
  *
 */
 template <class FaceType>
-void VFOrderedStarFF(const Pos<FaceType> &startPos,
+void VFOrderedStarFF(Pos<FaceType> &startPos,
                      std::vector<Pos<FaceType> > &posVec)
 {
   posVec.clear();
@@ -1018,7 +1002,7 @@ void VFOrderedStarFF(const Pos<FaceType> &startPos,
 */
 
 template <class FaceType>
-void VFOrderedStarFF(const Pos<FaceType> &startPos,
+void VFOrderedStarFF(Pos<FaceType> &startPos,
                         std::vector<FaceType*> &faceVec,
                         std::vector<int> &edgeVec)
 {

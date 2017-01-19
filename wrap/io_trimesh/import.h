@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004-2016                                           \/)\/    *
+* Copyright(C) 2004                                                \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -93,17 +93,16 @@ return lastType;
 }
 
 public:
-enum ImporterError {
-  E_NOERROR =0 // No error =0 is the standard for ALL the imported files.
-};
 // simple aux function that returns true if a given file has a given extesnion
-static bool FileExtension(std::string filename, std::string extension)
+static bool FileExtension(std::string filename,  std::string extension)
 {
-  std::transform(filename.begin(), filename.end(), filename.begin(), ::tolower);
-  std::transform(extension.begin(), extension.end(), extension.begin(), ::tolower);
+  std::locale loc1 ;
+  std::use_facet<std::ctype<char> > ( loc1 ).tolower(&*filename.begin(),&*filename.rbegin());
+  std::use_facet<std::ctype<char> > ( loc1 ).tolower(&*extension.begin(),&*extension.rbegin());
   std::string end=filename.substr(filename.length()-extension.length(),extension.length());
   return end==extension;
 }
+
 // Open Mesh, returns 0 on success.
 static int Open(OpenMeshType &m, const char *filename, CallBackPos *cb=0)
 {

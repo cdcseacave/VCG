@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004-2016                                           \/)\/    *
+* Copyright(C) 2004                                                \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -61,8 +61,6 @@ public:
     typedef vcg::face::VFIterator<FaceType> VFIteratorType;
     typedef typename MeshType::CoordType CoordType;
     typedef typename CoordType::ScalarType ScalarType;
-    typedef typename MeshType::VertexType::CurScalarType CurScalarType;
-    typedef typename MeshType::VertexType::CurVecType CurVecType;
 
 
 private:
@@ -248,8 +246,8 @@ public:
         CoordType Principal_Direction1 = T1 * c - T2 * s;
         CoordType Principal_Direction2 = T1 * s + T2 * c;
 
-        (*vi).PD1().Import(Principal_Direction1);
-        (*vi).PD2().Import(Principal_Direction2);
+        (*vi).PD1() = Principal_Direction1;
+        (*vi).PD2() = Principal_Direction2;
         (*vi).K1() =  Principal_Curvature1;
         (*vi).K2() =  Principal_Curvature2;
       }
@@ -355,18 +353,16 @@ If pointVSfaceInt==false the covariance is computed by (analytic)integration ove
         if( prod > bestv){bestv = prod; best = i;}
       }
 
-      (*vi).PD1().Import(eigenvectors.GetColumn( (best+1)%3).normalized());
-      (*vi).PD2().Import(eigenvectors.GetColumn( (best+2)%3).normalized());
+      (*vi).PD1()  = eigenvectors.GetColumn( (best+1)%3).normalized();
+      (*vi).PD2()  = eigenvectors.GetColumn( (best+2)%3).normalized();
 
       // project them to the plane identified by the normal
-      vcg::Matrix33<CurScalarType> rot;
-      CurVecType NN = CurVecType::Construct((*vi).N());
-      CurScalarType angle;
-      angle = acos((*vi).PD1().dot(NN));
-      rot.SetRotateRad(  - (M_PI*0.5 - angle),(*vi).PD1()^NN);
+      vcg::Matrix33<ScalarType> rot;
+      ScalarType angle = acos((*vi).PD1().dot((*vi).N()));
+      rot.SetRotateRad(  - (M_PI*0.5 - angle),(*vi).PD1()^(*vi).N());
       (*vi).PD1() = rot*(*vi).PD1();
-      angle = acos((*vi).PD2().dot(NN));
-      rot.SetRotateRad(  - (M_PI*0.5 - angle),(*vi).PD2()^NN);
+      angle = acos((*vi).PD2().dot((*vi).N()));
+      rot.SetRotateRad(  - (M_PI*0.5 - angle),(*vi).PD2()^(*vi).N());
       (*vi).PD2() = rot*(*vi).PD2();
 
 
@@ -679,8 +675,8 @@ static void MeanAndGaussian(MeshType & m)
             int minI = (bestNormalIndex+1)%3;
             if(fabs(lambda[maxI]) < fabs(lambda[minI])) std::swap(maxI,minI);
 
-            (*vi).PD1().Import(vect.GetColumn(maxI));
-            (*vi).PD2().Import(vect.GetColumn(minI));
+            (*vi).PD1() = *(Point3<ScalarType>*)(& vect[maxI][0]);
+            (*vi).PD2() = *(Point3<ScalarType>*)(& vect[minI][0]);
             (*vi).K1() = lambda[2];
             (*vi).K2() = lambda[1];
         }
@@ -692,12 +688,12 @@ static void MeanAndGaussian(MeshType & m)
       CoordType c=m.bbox.Center();
       float maxRad = m.bbox.Diag()/2.0f;
 
-      for(size_t i=0;i<m.vert.size();++i) {
+      for(int i=0;i<m.vert.size();++i) {
         CoordType dd = m.vert[i].P()-c;
         dd.Normalize();
-        m.vert[i].PD1().Import(dd^m.vert[i].N());
+        m.vert[i].PD1()=dd^m.vert[i].N();
         m.vert[i].PD1().Normalize();
-        m.vert[i].PD2().Import(m.vert[i].N()^CoordType::Construct(m.vert[i].PD1()));
+        m.vert[i].PD2()=m.vert[i].N()^m.vert[i].PD1();
         m.vert[i].PD2().Normalize();
         // Now the anisotropy
         // the idea is that the ratio between the two direction is at most <anisotropyRatio>
@@ -710,8 +706,8 @@ static void MeanAndGaussian(MeshType & m)
         const float curRatio = minRatio + (maxRatio-minRatio)*q;
         float pd1Len = sqrt(1.0/(1+curRatio*curRatio));
         float pd2Len = curRatio * pd1Len;
-//        assert(fabs(curRatio - pd2Len/pd1Len)<0.0000001);
-//        assert(fabs(pd1Len*pd1Len + pd2Len*pd2Len - 1.0f)<0.0001);
+        assert(fabs(curRatio - pd2Len/pd1Len)<0.0000001);
+        assert(fabs(pd1Len*pd1Len + pd2Len*pd2Len - 1.0f)<0.0001);
         m.vert[i].PD1() *= pd1Len;
         m.vert[i].PD2() *= pd2Len;
       }

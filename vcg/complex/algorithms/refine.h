@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004-2016                                           \/)\/    *
+* Copyright(C) 2004                                                \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -32,8 +32,6 @@
 #include <vcg/simplex/face/topology.h>
 #include <vcg/complex/algorithms/update/topology.h>
 #include <vcg/complex/algorithms/update/flag.h>
-#include <vcg/complex/algorithms/clean.h>
-#include <vcg/space/texcoord2.h>
 #include <vcg/space/triangle3.h>
 
 namespace vcg{
@@ -142,23 +140,19 @@ struct MidPoint : public   std::unary_function<face::Pos<typename MESH_TYPE::Fac
 
     void operator()(VertexType &nv, PosType  ep){
         assert(mp);
-        VertexType *V0 = ep.V() ;
-        VertexType *V1 = ep.VFlip() ;
-        if(V0 > V1) std::swap(V1,V0);
-
-        nv.P()=   (V0->P()+V1->P())/2.0;
+        nv.P()=   (ep.f->V(ep.z)->P()+ep.f->V1(ep.z)->P())/2.0;
 
         if( tri::HasPerVertexNormal(*mp))
-            nv.N()= (V0->N()+V1->N()).normalized();
+            nv.N()= (ep.f->V(ep.z)->N()+ep.f->V1(ep.z)->N()).normalized();
 
         if( tri::HasPerVertexColor(*mp))
-            nv.C().lerp(V0->C(),V1->C(),.5f);
+            nv.C().lerp(ep.f->V(ep.z)->C(),ep.f->V1(ep.z)->C(),.5f);
 
         if( tri::HasPerVertexQuality(*mp))
-            nv.Q() = (V0->Q()+V1->Q()) / 2.0;
+            nv.Q() = ((ep.f->V(ep.z)->Q()+ep.f->V1(ep.z)->Q())) / 2.0;
 
         if( tri::HasPerVertexTexCoord(*mp))
-            nv.T().P() = (V0->T().P()+V1->T().P()) / 2.0;
+            nv.T().P() = ((ep.f->V(ep.z)->T().P()+ep.f->V1(ep.z)->T().P())) / 2.0;
         if(intFunc)
           (*intFunc)(nv,ep);
     }
@@ -813,17 +807,16 @@ class QualityEdgePredicate
   typedef Point3<typename MESH_TYPE::ScalarType> Point3x;
   typedef typename MESH_TYPE::ScalarType ScalarType;
   ScalarType thr;
-  ScalarType tolerance;
-  QualityEdgePredicate(const ScalarType &thr,ScalarType _tolerance=0.02):thr(thr) {tolerance=_tolerance;}
+  QualityEdgePredicate(const ScalarType &thr):thr(thr) {}
   bool operator()(face::Pos<typename MESH_TYPE::FaceType> ep)
     {
     ScalarType q0=ep.f->V0(ep.z)->Q()-thr;
     ScalarType q1=ep.f->V1(ep.z)->Q()-thr;
     if(q0>q1) std::swap(q0,q1);
-    if ( q0*q1 >= 0) return false;
+    if ( q0*q1 > 0) return false;
     // now a small check to be sure that we do not make too thin crossing.
     double pp= q0/(q0-q1);
-    if ((fabs(pp)< tolerance)||(fabs(pp)> (1-tolerance))) return false;
+    if(fabs(pp)< 0.001) return false;
     return true;
   }
 };
@@ -886,6 +879,7 @@ struct CenterPointBarycenter : public std::unary_function<typename TRIMESH_TYPE:
 /// \brief Triangle split
 /// Simple templated function for splitting a triangle with a internal point.
 ///  It can be templated on a CenterPoint class that is used to generate the position of the internal point.
+
 
 template<class TRIMESH_TYPE, class CenterPoint=CenterPointBarycenter <TRIMESH_TYPE> >
 class TriSplit
@@ -963,61 +957,6 @@ public:
     }
   }
 }; // end class TriSplit
-
-template <class MeshType>
-void TrivialMidPointRefine(MeshType & m)
-{
-  typedef typename MeshType::VertexIterator VertexIterator;
-  typedef typename MeshType::FaceIterator FaceIterator;
-  typedef typename MeshType::VertexPointer VertexPointer;
-  typedef typename MeshType::FacePointer FacePointer;
-  
-  Allocator<MeshType>::CompactEveryVector(m);
-  int startFn = m.fn;
-  FaceIterator lastf = tri::Allocator<MeshType>::AddFaces(m,m.fn*3);
-  VertexIterator lastv = tri::Allocator<MeshType>::AddVertices(m,m.fn*3);
-  
-  /*
-   *               v0
-   *              /  \
-   *            /  f0  \
-   *          /          \
-   *        mp01----------mp02
-   *       /  \    f3    /   \
-   *     / f1   \      /  f2   \
-   *   /          \  /           \
-   *v1 ---------- mp12------------v2
-   *
-  */
-  
-  for(int i=0;i<startFn;++i)
-  {
-    FacePointer f0= &m.face[i];
-    FacePointer f1= &*lastf; ++lastf;
-    FacePointer f2= &*lastf; ++lastf;
-    FacePointer f3= &*lastf; ++lastf;    
-    VertexPointer v0 =m.face[i].V(0); 
-    VertexPointer v1 =m.face[i].V(1); 
-    VertexPointer v2 =m.face[i].V(2); 
-    VertexPointer mp01 = &*lastv; ++lastv; 
-    VertexPointer mp12 = &*lastv; ++lastv; 
-    VertexPointer mp02 = &*lastv; ++lastv; 
-    
-    f0->V(0) = v0;   f0->V(1) = mp01; f0->V(2) = mp02;
-    f1->V(0) = v1;   f1->V(1) = mp12; f1->V(2) = mp01;
-    f2->V(0) = v2;   f2->V(1) = mp02; f2->V(2) = mp12;
-    f3->V(0) = mp12; f3->V(1) = mp02; f3->V(2) = mp01;
-    mp01->P() = (v0>v1) ? (v0->P()+v1->P())/2.0 : (v1->P()+v0->P())/2.0;
-    mp12->P() = (v1>v2) ? (v1->P()+v2->P())/2.0 : (v2->P()+v1->P())/2.0;
-    mp02->P() = (v0>v2) ? (v0->P()+v2->P())/2.0 : (v2->P()+v0->P())/2.0;
-  }
-  
-  int vd = tri::Clean<MeshType>::RemoveDuplicateVertex(m);
-  printf("Vertex unification %i\n",vd);
-  int vu = tri::Clean<MeshType>::RemoveUnreferencedVertex(m);
-  printf("Vertex unref %i\n",vu);
-  Allocator<MeshType>::CompactEveryVector(m);
-}
 
 } // namespace tri
 } // namespace vcg

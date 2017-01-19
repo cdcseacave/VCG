@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004-2016                                           \/)\/    *
+* Copyright(C) 2004                                                \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -145,10 +145,10 @@ public:
         _v[1] = nv[1];
         _v[2] = nv[2];
     }
-    inline Point3 & operator =(Point3 const & p)
+    inline Point3 & operator =( Point3 const & p )
     {
-      _v[0] = p._v[0]; _v[1] = p._v[1]; _v[2] = p._v[2];
-      return *this;
+            _v[0]= p._v[0]; _v[1]= p._v[1]; _v[2]= p._v[2];
+            return *this;
     }
     inline void SetZero()
     {
@@ -201,11 +201,6 @@ public:
   static inline Point3 Construct( const Point3<ScalarType> & b )
   {
     return b;
-  }
-
-  static inline Point3 Zero(void)
-  {
-    return Point3(0,0,0);
   }
 
 //@}
@@ -391,13 +386,6 @@ public:
 //@}
 //@{
 
-  size_t MaxCoeffId() const
- {
-     if (_v[0]>_v[1])
-         return _v[0]>_v[2] ? 0 : 2;
-     else
-         return _v[1]>_v[2] ? 1 : 2;
- }
   /** @name Comparison Operators.
    Note that the reverse z prioritized ordering, useful in many situations.
    **/

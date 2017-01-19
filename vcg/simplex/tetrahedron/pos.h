@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004-2016                                           \/)\/    *
+* Copyright(C) 2004                                                \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -54,7 +54,7 @@ private:
 	int _vi;
 	/// Default Constructor
 public:
-  VTIterator() : _vt(0), _vi(-1){}
+	VTIterator(){}
 	/// Constructor which associates the EdgePos elementet with a face and its edge
 	VTIterator(TetraType  * const tp, int const zp)
 	{	
