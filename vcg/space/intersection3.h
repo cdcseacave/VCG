@@ -309,14 +309,24 @@ namespace vcg {
     /// intersection between two triangles
     template<typename TRIANGLETYPE>
     inline bool IntersectionTriangleTriangle(const TRIANGLETYPE & t0,const TRIANGLETYPE & t1){
-      return NoDivTriTriIsect(t0.cP(0),t0.cP(1),t0.cP(2),
-                              t1.cP(0),t1.cP(1),t1.cP(2));
+    	typedef typename TRIANGLETYPE::ScalarType ScalarType;
+#ifndef USE_MOLLER
+		return GuigueTriTri(t0.cP(0), t0.cP(1), t0.cP(2),
+							t1.cP(0), t1.cP(1), t1.cP(2));
+#else
+       return NoDivTriTriIsect(t0.cP(0),t0.cP(1),t0.cP(2),
+                               t1.cP(0),t1.cP(1),t1.cP(2));
+#endif
     }
 
   template<class T>
     inline bool IntersectionTriangleTriangle(Point3<T> V0,Point3<T> V1,Point3<T> V2,
 			     Point3<T> U0,Point3<T> U1,Point3<T> U2){
+#ifndef USE_MOLLER
+    return GuigueTriTri(V0,V1,V2,U0,U1,U2);
+#else
     return NoDivTriTriIsect(V0,V1,V2,U0,U1,U2);
+#endif
   }
 #if 0
   template<class T>
@@ -379,19 +389,19 @@ bool IntersectionLineTriangle( const Line3<T> & line, const Point3<T> & vert0,
    /* calculate distance from vert0 to line origin */
    tvec = line.Origin() - vert0;
    inv_det = 1.0 / det;
-   
+
    qvec = tvec ^ edge1;
-      
+
    if (det > EPSIL)
    {
       u =  tvec * pvec ;
       if ( u < 0.0 ||  u > det)
-	 return 0;
+        return 0;
             
       /* calculate V parameter and test bounds */
        v =  line.Direction() * qvec;
       if ( v < 0.0 ||  u +  v > det)
-	 return 0;
+        return 0;
       
    }
    else if(det < -EPSIL)
@@ -399,12 +409,12 @@ bool IntersectionLineTriangle( const Line3<T> & line, const Point3<T> & vert0,
       /* calculate U parameter and test bounds */
        u =  tvec * pvec ;
       if ( u > 0.0 ||  u < det)
-	 return 0;
+        return 0;
       
       /* calculate V parameter and test bounds */
        v =  line.Direction() * qvec  ;
       if ( v > 0.0 ||  u +  v < det)
-	 return 0;
+        return 0;
    }
    else return 0;  /* line is parallell to the plane of the triangle */
 
