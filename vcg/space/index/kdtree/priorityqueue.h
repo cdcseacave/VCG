@@ -74,7 +74,7 @@ public:
 		{
 			if (weight<mElements[0].weight)
 			{
-				register int j, k;
+				int j, k;
 				j = 1;
 				k = 2;
 				while (k <= mMaxSize)
