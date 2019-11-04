@@ -46,7 +46,8 @@ template <>
 class VectorNBW<bool>{
 public:
     VectorNBW():data(0),datasize(0),datareserve(0){}
-    bool * data ;
+    ~VectorNBW() { delete[] data;}
+    bool * data;
 
     void reserve (const int & sz)	{
         if(sz<=datareserve) return;
