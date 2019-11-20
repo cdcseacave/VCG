@@ -1689,8 +1689,10 @@ static std::pair<int,int>  RemoveSmallConnectedComponentsSize(MeshType &m, int m
 static std::pair<int,int> RemoveSmallConnectedComponentsDiameter(MeshType &m, ScalarType maxDiameter)
 {
   std::vector< std::pair<int, typename MeshType::FacePointer> > CCV;
-      int TotalCC=ConnectedComponents(m, CCV);
+      const int TotalCC=ConnectedComponents(m, CCV);
       int DeletedCC=0;
+	  if (TotalCC < 2)
+        return std::make_pair(TotalCC,DeletedCC);
       tri::ConnectedComponentIterator<MeshType> ci;
       for(unsigned int i=0;i<CCV.size();++i)
       {
@@ -1711,7 +1713,7 @@ static std::pair<int,int> RemoveSmallConnectedComponentsDiameter(MeshType &m, Sc
                         tri::Allocator<MeshType>::DeleteFace(m,(**fpvi));
         }
       }
-            return std::make_pair(TotalCC,DeletedCC);
+      return std::make_pair(TotalCC,DeletedCC);
 }
 
 /// Remove the connected components greater than a given diameter
@@ -1719,8 +1721,10 @@ static std::pair<int,int> RemoveSmallConnectedComponentsDiameter(MeshType &m, Sc
 static std::pair<int,int> RemoveHugeConnectedComponentsDiameter(MeshType &m, ScalarType minDiameter)
 {
   std::vector< std::pair<int, typename MeshType::FacePointer> > CCV;
-      int TotalCC=ConnectedComponents(m, CCV);
+      const int TotalCC=ConnectedComponents(m, CCV);
       int DeletedCC=0;
+	  if (TotalCC < 2)
+        return std::make_pair(TotalCC,DeletedCC);
       tri::ConnectedComponentIterator<MeshType> ci;
       for(unsigned int i=0;i<CCV.size();++i)
       {
@@ -1741,7 +1745,7 @@ static std::pair<int,int> RemoveHugeConnectedComponentsDiameter(MeshType &m, Sca
                         tri::Allocator<MeshType>::DeleteFace(m,(**fpvi));
         }
       }
-            return std::make_pair(TotalCC,DeletedCC);
+      return std::make_pair(TotalCC,DeletedCC);
 }
 
         }; // end class
