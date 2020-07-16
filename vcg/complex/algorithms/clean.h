@@ -1661,26 +1661,24 @@ public:
 
 static std::pair<int,int>  RemoveSmallConnectedComponentsSize(MeshType &m, int maxCCSize)
 {
-  std::vector< std::pair<int, typename MeshType::FacePointer> > CCV;
-      int TotalCC=ConnectedComponents(m, CCV);
-            int DeletedCC=0;
-
+  typedef std::pair<int, typename MeshType::FacePointer> IdxFace;
+  std::vector<IdxFace> CCV;
+      const int TotalCC=ConnectedComponents(m, CCV);
+      int DeletedCC=0;
+	  if (TotalCC < 2)
+        return std::make_pair(TotalCC,DeletedCC);
+      std::sort(CCV.begin(), CCV.end(), [](const IdxFace& i, const IdxFace& j) { return i.first > j.first; });
       ConnectedComponentIterator<MeshType> ci;
-      for(unsigned int i=0;i<CCV.size();++i)
+      for(unsigned i=1; i<CCV.size(); ++i)
       {
-        std::vector<typename MeshType::FacePointer> FPV;
         if(CCV[i].first<maxCCSize)
         {
-                    DeletedCC++;
+          DeletedCC++;
           for(ci.start(m,CCV[i].second);!ci.completed();++ci)
-            FPV.push_back(*ci);
-
-          typename std::vector<typename MeshType::FacePointer>::iterator fpvi;
-          for(fpvi=FPV.begin(); fpvi!=FPV.end(); ++fpvi)
-                        Allocator<MeshType>::DeleteFace(m,(**fpvi));
+            Allocator<MeshType>::DeleteFace(m,(**ci));
         }
       }
-            return std::make_pair(TotalCC,DeletedCC);
+      return std::make_pair(TotalCC,DeletedCC);
 }
 
 
@@ -1693,24 +1691,30 @@ static std::pair<int,int> RemoveSmallConnectedComponentsDiameter(MeshType &m, Sc
       int DeletedCC=0;
 	  if (TotalCC < 2)
         return std::make_pair(TotalCC,DeletedCC);
-      tri::ConnectedComponentIterator<MeshType> ci;
-      for(unsigned int i=0;i<CCV.size();++i)
+      std::vector<Box3f::ScalarType> diags;
+      ConnectedComponentIterator<MeshType> ci;
+      for(unsigned i=0;i<CCV.size();++i)
       {
         Box3f bb;
-        std::vector<typename MeshType::FacePointer> FPV;
         for(ci.start(m,CCV[i].second);!ci.completed();++ci)
         {
-            FPV.push_back(*ci);
             bb.Add((*ci)->P(0));
             bb.Add((*ci)->P(1));
             bb.Add((*ci)->P(2));
         }
-        if(bb.Diag()<maxDiameter)
+        diags.emplace_back(bb.Diag());
+      }
+      std::vector<unsigned> indices(CCV.size());
+      std::iota(indices.begin(), indices.end(), 0);
+      std::sort(indices.begin(), indices.end(), [&diags](unsigned i, unsigned j) { return diags[i] > diags[j]; });
+      for (size_t idx=1; idx<indices.size(); ++idx)
+      {
+        const unsigned i(indices[idx]);
+        if(diags[i]<maxDiameter)
         {
-                    DeletedCC++;
-          typename std::vector<typename MeshType::FacePointer>::iterator fpvi;
-          for(fpvi=FPV.begin(); fpvi!=FPV.end(); ++fpvi)
-                        tri::Allocator<MeshType>::DeleteFace(m,(**fpvi));
+          DeletedCC++;
+          for(ci.start(m,CCV[i].second);!ci.completed();++ci)
+            tri::Allocator<MeshType>::DeleteFace(m,(**ci));
         }
       }
       return std::make_pair(TotalCC,DeletedCC);
