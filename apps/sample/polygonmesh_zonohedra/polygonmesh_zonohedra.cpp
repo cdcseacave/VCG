@@ -2,7 +2,7 @@
  * VCGLib                                                            o o     *
  * Visual and Computer Graphics Library                            o     o   *
  *                                                                _   O  _   *
- * Copyright(C) 2004                                                \/)\/    *
+ * Copyright(C) 2004-2016                                           \/)\/    *
  * Visual Computing Lab                                            /\/|      *
  * ISTI - Italian National Research Council                           |      *
  *                                                                    \      *
@@ -42,7 +42,7 @@ class MyEdge : public vcg::Edge< MyUsedTypes > {};
 class MyFace : public vcg::Face< MyUsedTypes,
     vcg::face::FFAdj,
     vcg::face::VertexRef,
-  vcg::face::Normal3f,
+    vcg::face::Normal3f,
     vcg::face::BitFlags > {};
 
 // the main mesh class
@@ -89,7 +89,7 @@ void example2(){
             z.addVector(a,b,c);
         }
 
-        printf("Building %s from %d vectors...\n",fullMeshFilename, z.vectors().size() );
+        printf("Building %s from %lu vectors...\n",fullMeshFilename, z.vectors().size() );
 
         MyMesh m;
         z.createMesh(m);
@@ -98,7 +98,7 @@ void example2(){
 
         // normally, faces with more than 4sides are split into parallelograms
         // this merges them (optional, try removing it!)
-        vcg::tri::PolygonSupport<MyMesh,int>::MergeFlatFaces(m);
+        vcg::tri::PolygonSupport<MyMesh,MyMesh>::MergeFlatFaces(m);
 
         int savemask = vcg::tri::io::Mask::IOM_BITPOLYGONAL;
         vcg::tri::io::ExporterOFF<MyMesh>::Save(m,fullMeshFilename,savemask);
@@ -106,7 +106,7 @@ void example2(){
 
 }
 
-int main(int argc, char *argv[]){
+int main(int , char **){
     example1();
     example2();
     return 0;

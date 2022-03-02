@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004-2012                                           \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -28,16 +28,6 @@
 #include<vcg/complex/algorithms/local_optimization/tri_edge_flip.h>
 #include<vcg/complex/algorithms/smooth.h>
 #include<vcg/complex/algorithms/refine.h>
-
-#include<vcg/complex/algorithms/update/selection.h>
-
-// topology computation
-#include<vcg/complex/algorithms/update/topology.h>
-#include <vcg/complex/algorithms/update/flag.h>
-#include <vcg/complex/algorithms/update/normal.h>
-
-// half edge iterators
-#include<vcg/simplex/face/pos.h>
 
 // input output
 #include <wrap/io_trimesh/import_ply.h>
@@ -73,13 +63,13 @@ bool NormalTest(typename face::Pos<typename MESH::FaceType> pos)
 {
     //giro intorno al vertice e controllo le normali
     typename MESH::ScalarType thr = 0.0f;
-        typename MESH::CoordType NdP = vcg::Normal<typename MESH::FaceType>(*pos.f);
+        typename MESH::CoordType NdP = vcg::TriangleNormal<typename MESH::FaceType>(*pos.f);
     typename MESH::CoordType tmp, oop, soglia = typename MESH::CoordType(thr,thr,thr);
     face::Pos<typename MESH::FaceType> aux=pos;
     do{
         aux.FlipF();
         aux.FlipE();
-                oop = Abs(tmp - ::vcg::Normal<typename MESH::FaceType>(*pos.f));
+                oop = Abs(tmp - ::vcg::TriangleNormal<typename MESH::FaceType>(*pos.f));
         if(oop < soglia )return false;
     }while(aux != pos && !aux.IsBorder());
 
@@ -91,7 +81,7 @@ int main(int argc,char ** argv){
     if(argc<5)
     {
         printf(
-            "\n     HoleFilling ("__DATE__")\n"
+            "\n     HoleFilling (" __DATE__ ")\n"
             "Visual Computing Group I.S.T.I. C.N.R.\n"
       "Usage: trimesh_hole #algorithm #size filein.ply fileout.ply \n"
             "#algorithm: \n"
@@ -239,7 +229,7 @@ int main(int argc,char ** argv){
         {
             f1=f2;
             f2++;
-            TriSplit<MyMesh,CenterPointBarycenter<MyMesh> >::Apply(vf[i],&(*f1),&(*f2),&(*vertp),CenterPointBarycenter<MyMesh>() );
+            vcg::tri::TriSplit<MyMesh,vcg::tri::CenterPointBarycenter<MyMesh> >::Apply(vf[i],&(*f1),&(*f2),&(*vertp),vcg::tri::CenterPointBarycenter<MyMesh>() );
             f1->SetS();
             f2->SetS();
             for(int itr=0;itr<3;itr++)

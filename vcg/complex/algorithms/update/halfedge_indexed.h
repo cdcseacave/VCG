@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004                                                \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -214,9 +214,9 @@ namespace vcg
 
                             for(typename MeshType::EdgeIterator ei1 = m.edge.begin(); ei1 != m.edge.end(); ++ei1 )
                             {
-                                vector<HEdgePointer> hedges = HalfEdgeTopology<MeshType>::get_incident_hedges((*ei1).V(0));
+                                std::vector<HEdgePointer> hedges = HalfEdgeTopology<MeshType>::get_incident_hedges((*ei1).V(0));
 
-                                for(typename vector<HEdgePointer>::iterator hi = hedges.begin(); hi != hedges.end(); ++hi)
+                                for(typename std::vector<HEdgePointer>::iterator hi = hedges.begin(); hi != hedges.end(); ++hi)
                                 {
                                     if((*hi)->HOp()->HVp() == (*ei1).V(1))
                                     {
@@ -513,9 +513,8 @@ namespace vcg
 
 
                 if( HEdgeType::HasHFAdjacency() && FaceType::HasFHAdjacency()){
-                    FaceIterator fi0  = vcg::tri::Allocator<MeshType>::AddFaces(m,1);
+                    vcg::tri::Allocator<MeshType>::AddFaces(m,1);
                     m.face.back().ImportData(*e0->HFp());
-
                     SetRelationsLoopFace(&(*ei0),e1->HFp());		// one loop to the old face
                     SetRelationsLoopFace(&(*ei1),&m.face.back());	// the other  to the new face
                 }

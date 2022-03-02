@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004                                                \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -212,13 +212,13 @@ template <class S,class RotationType> void Similarity<S,RotationType>::FromMatri
   tra[2] = t.ElementAt(2, 3);t[2][3] = 0.0;
   rot.FromMatrix(t);
 
-	Invert(t);	
+    t=Inverse(t);
 	tra = t * tra;
 	tra/= sca;
 }
 
 
-template <class S,class RotationType> Similarity<S,RotationType> &Invert(Similarity<S,RotationType> &a) {  
+template <class S,class RotationType> Similarity<S,RotationType> &Invert(Similarity<S,RotationType> &a) {
   a.rot.Invert();
   a.sca = 1/a.sca;
   a.tra = a.rot.Rotate(-a.tra)*a.sca;

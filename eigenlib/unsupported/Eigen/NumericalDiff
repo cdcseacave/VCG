@@ -5,7 +5,7 @@
 //
 // This Source Code Form is subject to the terms of the Mozilla
 // Public License v. 2.0. If a copy of the MPL was not distributed
-// with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// with this file, You can obtain one at the mozilla.org home page
 
 #ifndef EIGEN_NUMERICALDIFF_MODULE
 #define EIGEN_NUMERICALDIFF_MODULE
@@ -21,7 +21,7 @@ namespace Eigen {
   * #include <unsupported/Eigen/NumericalDiff>
   * \endcode
   *
-  * See http://en.wikipedia.org/wiki/Numerical_differentiation
+  * See xxxp://en.wikipedia.org/wiki/Numerical_differentiation
   *
   * Warning : this should NOT be confused with automatic differentiation, which
   * is a different method and has its own module in Eigen : \ref

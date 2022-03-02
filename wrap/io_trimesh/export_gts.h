@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004                                                \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -34,6 +34,7 @@
 #include <QFile>
 #include <QTextStream>
 #include <map>
+#include <unordered_map>
 #include <wrap/io_trimesh/io_mask.h>
 
 
@@ -45,15 +46,15 @@ namespace vcg {
 			{
 
 			public:
-				typedef typename SaveMeshType::VertexPointer VertexPointer;
+				typedef typename SaveMeshType::ConstVertexPointer VertexPointer;
 				typedef typename SaveMeshType::ScalarType ScalarType;
 				typedef typename SaveMeshType::VertexType VertexType;
 				typedef typename SaveMeshType::FaceType FaceType;
-				typedef typename SaveMeshType::FacePointer FacePointer;
-				typedef typename SaveMeshType::VertexIterator VertexIterator;
-				typedef typename SaveMeshType::FaceIterator FaceIterator;
+				typedef typename SaveMeshType::ConstFacePointer FacePointer;
+				typedef typename SaveMeshType::ConstVertexIterator VertexIterator;
+				typedef typename SaveMeshType::ConstFaceIterator FaceIterator;
 
-				static int Save(SaveMeshType &m, const char * filename, int mask=0 )
+				static int Save(const SaveMeshType &m, const char * filename, int /*mask*/ )
 				{
 					QFile device(filename);
 					if (!device.open(QFile::WriteOnly))
@@ -62,17 +63,19 @@ namespace vcg {
 					QTextStream stream(&device);
 
 					// update vertex indices
-					std::vector<int> FlagV;
+					//std::vector<int> FlagV;
+					std::unordered_map<VertexPointer, int> vertFlags;
 					VertexPointer  vp;
 					VertexIterator vi;
 					int j;
 					for(j=0,vi=m.vert.begin(); vi!=m.vert.end(); ++vi)
 					{
 						vp = &(*vi);
-						FlagV.push_back(vp->Flags());
+						//FlagV.push_back(vp->Flags());
 						if (!vp->IsD())
 						{
-							vp->Flags() = j;
+							vertFlags[vp] = j;
+							//vp->Flags() = j;
 							j++;
 						}
 					}
@@ -94,8 +97,8 @@ namespace vcg {
 						{
 							for (int k=0; k<3; ++k)
 							{
-								int a = fp->cV(k)->Flags();
-								int b = fp->cV((k+1)%3)->Flags();
+								int a = vertFlags[fp->cV(k)];//fp->cV(k)->Flags();
+								int b = vertFlags[fp->cV((k+1)%3)];//fp->cV((k+1)%3)->Flags();
 								if (a>b)
 									std::swap(a,b);
 								Edge e(a,b);
@@ -132,8 +135,8 @@ namespace vcg {
 						{
 							for (int k=0; k<3; ++k)
 							{
-								int a = fp->cV(k)->Flags();
-								int b = fp->cV((k+1)%3)->Flags();
+								int a = vertFlags[fp->cV(k)];//fp->cV(k)->Flags();
+								int b = vertFlags[fp->cV((k+1)%3)];//fp->cV((k+1)%3)->Flags();
 								if (a>b)
 									std::swap(a,b);
 								Edge e(a,b);
@@ -154,8 +157,8 @@ namespace vcg {
 						{
 							for (int k=0; k<3; ++k)
 							{
-								int a = fp->cV(k)->Flags();
-								int b = fp->cV((k+1)%3)->Flags();
+								int a = vertFlags[fp->cV(k)];//fp->cV(k)->Flags();
+								int b = vertFlags[fp->cV((k+1)%3)];//fp->cV((k+1)%3)->Flags();
 								if (a>b)
 									std::swap(a,b);
 								Edge e(a,b);
@@ -170,25 +173,30 @@ namespace vcg {
 					}
 
 					// Recupera i flag originali
-					for(j=0,vi=m.vert.begin();vi!=m.vert.end();++vi)
-						(*vi).Flags()=FlagV[j++];
+					//for(j=0,vi=m.vert.begin();vi!=m.vert.end();++vi)
+					//	(*vi).Flags()=FlagV[j++];
 
-					return 0;
+
+					int result = 0;
+					if (stream.status() != QTextStream::Ok) result = 3;
+					stream.flush();
+					return result;
 				}
 
         static const char *ErrorMsg(int error)
         {
-          static std::vector<std::string> off_error_msg;
-          if(off_error_msg.empty())
-          {
-            off_error_msg.resize(2 );
-            off_error_msg[0]="No errors";
-	          off_error_msg[1]="Can't open file";
-						off_error_msg[2]="Internal error";
-					}
+			static std::vector<std::string> off_error_msg;
+			if (off_error_msg.empty())
+			{
+				off_error_msg.resize(4);
+				off_error_msg[0] = "No errors";
+				off_error_msg[1] = "Can't open file";
+				off_error_msg[2] = "Internal error";
+				off_error_msg[3] = "Otput Stream Error";
+			}
 
-          if(error>2 || error<0) return "Unknown error";
-          else return off_error_msg[error].c_str();
+			if (error>3 || error<0) return "Unknown error";
+			else return off_error_msg[error].c_str();
         }
         /*
 	        returns mask of capability one define with what are the saveable information of the format.

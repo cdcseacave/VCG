@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004                                                \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -89,6 +89,7 @@ Edited Comments and GPL license
 #include <float.h>
 #include <math.h>
 #include <assert.h>
+#include <cmath>
 #include <limits>
 #include <algorithm>
 
@@ -164,7 +165,7 @@ namespace math {
 
 /* Some <math.h> files do not define M_PI... */
 #ifndef M_PI
-#define M_PI 3.14159265358979323846
+#define M_PI 3.14159265358979323846264338327950288
 #endif
 
 #ifndef SQRT_TWO
@@ -172,23 +173,41 @@ namespace math {
 #endif
 
 template <class SCALAR>
-inline SCALAR  Clamp( const SCALAR & val, const SCALAR& minval, const SCALAR& maxval)
+inline SCALAR  Clamp(const SCALAR & val, const SCALAR& minval, const SCALAR& maxval)
 {
 	if(val < minval) return minval;
 	if(val > maxval) return maxval;
 	return val;
 }
 
+template <class SCALAR>
+inline SCALAR Lerp(const SCALAR a, const SCALAR b, const SCALAR lambda)
+{
+    return a * lambda + (1-lambda) * b;
+}
 
+template <class SCALAR>
+inline SCALAR ClampedLerp(const SCALAR a, const SCALAR b, const SCALAR lambda)
+{
+  const SCALAR clampedLambda = math::Clamp(lambda, (SCALAR)0, (SCALAR)1);
+  return a * clampedLambda + ((SCALAR)1-clampedLambda) * b;
+}
+                   
 
 inline float   ToDeg(const float &a){return a*180.0f/float(M_PI);}
 inline float   ToRad(const float &a){return float(M_PI)*a/180.0f;}
 inline double  ToDeg(const double &a){return a*180.0/M_PI;}
 inline double  ToRad(const double &a){return M_PI*a/180.0;}
 
+template <typename T>
+int Sgn(T val) {
+    return (T(0) < val) - (val < T(0));
+}
 
 #if defined(_MSC_VER) // Microsoft Visual C++
 template<class T> int IsNAN(T t) {    return _isnan(t) || (!_finite(t)); }
+#elif defined(__MINGW32__) // GCC
+template<class T> int IsNAN(T t) {    return std::isnan(t) || std::isinf(t); }
 #elif defined(__GNUC__) // GCC
 template<class T> int IsNAN(T t) {    return std::isnan(t) || std::isinf(t); }
 #else // generic

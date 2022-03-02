@@ -5,7 +5,7 @@
 //
 // This Source Code Form is subject to the terms of the Mozilla
 // Public License v. 2.0. If a copy of the MPL was not distributed
-// with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// with this file, You can obtain one at the mozilla.org home page
 
 #ifndef EIGEN_ADLOC_FORWARD
 #define EIGEN_ADLOC_FORWARD
@@ -14,7 +14,7 @@
 //
 // This file provides support for adolc's adouble type in forward mode.
 // ADOL-C is a C++ automatic differentiation library,
-// see https://projects.coin-or.org/ADOL-C for more information.
+// see xxxps://projects.coin-or.org/ADOL-C for more information.
 //
 // Note that the maximal number of directions is controlled by
 // the preprocessor token NUMBER_DIRECTIONS. The default is 2.
@@ -25,7 +25,7 @@
 #ifndef NUMBER_DIRECTIONS
 # define NUMBER_DIRECTIONS 2
 #endif
-#include <adolc/adouble.h>
+#include <adolc/adtl.h>
 
 // adolc defines some very stupid macros:
 #if defined(malloc)
@@ -48,7 +48,7 @@ namespace Eigen {
   * \defgroup AdolcForward_Module Adolc forward module
   * This module provides support for adolc's adouble type in forward mode.
   * ADOL-C is a C++ automatic differentiation library,
-  * see https://projects.coin-or.org/ADOL-C for more information.
+  * see xxxps://projects.coin-or.org/ADOL-C for more information.
   * It mainly consists in:
   *  - a struct Eigen::NumTraits<adtl::adouble> specialization
   *  - overloads of internal::* math function for adtl::adouble type.

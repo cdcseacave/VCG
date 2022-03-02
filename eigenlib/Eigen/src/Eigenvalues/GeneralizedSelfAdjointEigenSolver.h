@@ -6,7 +6,7 @@
 //
 // This Source Code Form is subject to the terms of the Mozilla
 // Public License v. 2.0. If a copy of the MPL was not distributed
-// with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// with this file, You can obtain one at the mozilla.org home page
 
 #ifndef EIGEN_GENERALIZEDSELFADJOINTEIGENSOLVER_H
 #define EIGEN_GENERALIZEDSELFADJOINTEIGENSOLVER_H
@@ -50,7 +50,6 @@ class GeneralizedSelfAdjointEigenSolver : public SelfAdjointEigenSolver<_MatrixT
     typedef SelfAdjointEigenSolver<_MatrixType> Base;
   public:
 
-    typedef typename Base::Index Index;
     typedef _MatrixType MatrixType;
 
     /** \brief Default constructor for fixed-size matrices.
@@ -74,7 +73,7 @@ class GeneralizedSelfAdjointEigenSolver : public SelfAdjointEigenSolver<_MatrixT
       *
       * \sa compute() for an example
       */
-    GeneralizedSelfAdjointEigenSolver(Index size)
+    explicit GeneralizedSelfAdjointEigenSolver(Index size)
         : Base(size)
     {}
 

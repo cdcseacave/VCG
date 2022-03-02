@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004-2012                                           \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -25,25 +25,40 @@
 #define __VCG_MESH_H
 #define __VCG_MESH
 
-#include <assert.h>
+#include <cassert>
+#include <cstring>
 #include <string>
+#include <ctime>
 #include <vector>
 #include <set>
 #include <stack>
-#include <algorithm>
+#include <queue>
 #include <map>
+#include <algorithm>
 #include <iostream>
 #include <stdexcept>
 #include <limits>
-#include <set>
+#include <iterator>
+#include <typeindex>
 #include <wrap/callback.h>
 #include <vcg/complex/exception.h>
 #include <vcg/container/simple_temporary_data.h>
 #include <vcg/complex/used_types.h>
 #include <vcg/complex/base.h>
 #include <vcg/complex/allocate.h>
+#include <vcg/simplex/face/pos.h>
+#include <vcg/simplex/face/topology.h>
+#include <vcg/simplex/edge/pos.h>
+#include <vcg/simplex/edge/topology.h>
+#include <vcg/simplex/tetrahedron/pos.h>
+#include <vcg/simplex/tetrahedron/topology.h>
+#include <vcg/complex/foreach.h>
 #include <vcg/complex/algorithms/update/flag.h>
 #include <vcg/complex/algorithms/update/selection.h>
+#include <vcg/complex/algorithms/update/topology.h>
+#include <vcg/complex/algorithms/update/normal.h>
+#include <vcg/complex/algorithms/update/bounding.h>
+#include <vcg/complex/algorithms/mesh_assert.h>
 #include <vcg/complex/append.h>
 
 #undef __VCG_MESH

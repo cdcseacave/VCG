@@ -5,7 +5,7 @@
 //
 // This Source Code Form is subject to the terms of the Mozilla
 // Public License v. 2.0. If a copy of the MPL was not distributed
-// with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// with this file, You can obtain one at the mozilla.org home page
 #ifndef SPARSELU_IMPL_H
 #define SPARSELU_IMPL_H
 
@@ -16,17 +16,19 @@ namespace internal {
   * \class SparseLUImpl
   * Base class for sparseLU
   */
-template <typename Scalar, typename Index>
+template <typename Scalar, typename StorageIndex>
 class SparseLUImpl
 {
   public:
     typedef Matrix<Scalar,Dynamic,1> ScalarVector;
-    typedef Matrix<Index,Dynamic,1> IndexVector; 
+    typedef Matrix<StorageIndex,Dynamic,1> IndexVector; 
+    typedef Matrix<Scalar,Dynamic,Dynamic,ColMajor> ScalarMatrix;
+    typedef Map<ScalarMatrix, 0,  OuterStride<> > MappedMatrixBlock;
     typedef typename ScalarVector::RealScalar RealScalar; 
     typedef Ref<Matrix<Scalar,Dynamic,1> > BlockScalarVector;
-    typedef Ref<Matrix<Index,Dynamic,1> > BlockIndexVector;
+    typedef Ref<Matrix<StorageIndex,Dynamic,1> > BlockIndexVector;
     typedef LU_GlobalLU_t<IndexVector, ScalarVector> GlobalLU_t; 
-    typedef SparseMatrix<Scalar,ColMajor,Index> MatrixType; 
+    typedef SparseMatrix<Scalar,ColMajor,StorageIndex> MatrixType; 
     
   protected:
      template <typename VectorType>
@@ -40,7 +42,7 @@ class SparseLUImpl
      Index snode_bmod (const Index jcol, const Index fsupc, ScalarVector& dense, GlobalLU_t& glu);
      Index pivotL(const Index jcol, const RealScalar& diagpivotthresh, IndexVector& perm_r, IndexVector& iperm_c, Index& pivrow, GlobalLU_t& glu);
      template <typename Traits>
-     void dfs_kernel(const Index jj, IndexVector& perm_r,
+     void dfs_kernel(const StorageIndex jj, IndexVector& perm_r,
                     Index& nseg, IndexVector& panel_lsub, IndexVector& segrep,
                     Ref<IndexVector> repfnz_col, IndexVector& xprune, Ref<IndexVector> marker, IndexVector& parent,
                     IndexVector& xplore, GlobalLU_t& glu, Index& nextl_col, Index krow, Traits& traits);

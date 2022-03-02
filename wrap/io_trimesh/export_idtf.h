@@ -159,7 +159,8 @@ public:
 		tga.colourmaptype = 0;
 		tga.imagetype = 2;
 
-		memset(tga.colormapspecs,0,5);
+		for (unsigned int i = 0; i < 5; ++i)
+			tga.colormapspecs[i] = '\0';
 		tga.xstart = (short) im.offset().x();
 		tga.ystart = (short) im.offset().y();
 		tga.height = (short) im.height();
@@ -180,10 +181,10 @@ public:
 			//is a 8-digits binary number code  
 			// always 0 0  |  mirroring | bits 
 			//(future uses)|  image     | for alpha-channel
-			//--------------------------------------------			
-			//     7 6     |      5 4   |      3 2 1 0
 			//--------------------------------------------
-			//     0 0     |      1 0   |      1 0 0 0
+			//     7 6     |     5 4    |      3 2 1 0
+			//--------------------------------------------
+			//     0 0     |     1 0    |      1 0 0 0
 			tga.descriptor = (char) 40;
 			tga.bits = (char) 32;
 		}
@@ -360,7 +361,7 @@ typedef typename SaveMeshType::CoordType CoordType;
 				idtf.write(2,"SHADER_MATERIAL_NAME \"Mat01\"");
 
 
-				int texcount = 0;
+				size_t texcount = 0;
 				if (mask & vcg::tri::io::Mask::IOM_WEDGTEXCOORD)
 					texcount = m.textures.size();
 
@@ -429,7 +430,7 @@ typedef typename SaveMeshType::CoordType CoordType;
 		if (mask & vcg::tri::io::Mask::IOM_WEDGTEXCOORD) idtf.write(3,"MODEL_TEXTURE_COORD_COUNT " + TextUtility::nmbToStr(m.face.size() * 3));
 		else idtf.write(3,"MODEL_TEXTURE_COORD_COUNT 0");
 		idtf.write(3,"MODEL_BONE_COUNT 0");
-		unsigned int mod_sha;
+		size_t mod_sha;
 		if (m.textures.size() == 0)
 			mod_sha = 1;
 		else

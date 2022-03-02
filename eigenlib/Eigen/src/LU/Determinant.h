@@ -5,7 +5,7 @@
 //
 // This Source Code Form is subject to the terms of the Mozilla
 // Public License v. 2.0. If a copy of the MPL was not distributed
-// with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// with this file, You can obtain one at the mozilla.org home page
 
 #ifndef EIGEN_DETERMINANT_H
 #define EIGEN_DETERMINANT_H
@@ -92,7 +92,7 @@ template<typename Derived>
 inline typename internal::traits<Derived>::Scalar MatrixBase<Derived>::determinant() const
 {
   eigen_assert(rows() == cols());
-  typedef typename internal::nested<Derived,Base::RowsAtCompileTime>::type Nested;
+  typedef typename internal::nested_eval<Derived,Base::RowsAtCompileTime>::type Nested;
   return internal::determinant_impl<typename internal::remove_all<Nested>::type>::run(derived());
 }
 

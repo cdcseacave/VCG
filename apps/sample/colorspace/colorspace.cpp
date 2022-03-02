@@ -1,3 +1,25 @@
+/****************************************************************************
+* VCGLib                                                            o o     *
+* Visual and Computer Graphics Library                            o     o   *
+*                                                                _   O  _   *
+* Copyright(C) 2004-2016                                           \/)\/    *
+* Visual Computing Lab                                            /\/|      *
+* ISTI - Italian National Research Council                           |      *
+*                                                                    \      *
+* All rights reserved.                                                      *
+*                                                                           *
+* This program is free software; you can redistribute it and/or modify      *
+* it under the terms of the GNU General Public License as published by      *
+* the Free Software Foundation; either version 2 of the License, or         *
+* (at your option) any later version.                                       *
+*                                                                           *
+* This program is distributed in the hope that it will be useful,           *
+* but WITHOUT ANY WARRANTY; without even the implied warranty of            *
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the             *
+* GNU General Public License (http://www.gnu.org/licenses/gpl.txt)          *
+* for more details.                                                         *
+*                                                                           *
+****************************************************************************/
 
 // Standard headers
 #include <iostream>
@@ -78,7 +100,7 @@ int main(int argc,char ** argv)
 
 	cout << "  * RGB <--> Lab conversion" << endl << endl;
 
-	vcg::Color4<double> xyzD65 = ColorSpace::RGBtoXYZ(color, ColorSpace::SRGB, ColorSpace::ILLUMINANT_D65); 
+	vcg::Color4<double> xyzD65 = ColorSpace::RGBtoXYZ(color, ColorSpace::SRGB, ColorSpace::VCG_ILLUMINANT_D65); 
 	vcg::Color4<double> lab = ColorSpace::XYZtoCIELab(xyzD65, ColorSpace::refIlluminant(ColorSpace::SRGB));
 	cout << "  RGB --> CIELab: " << lab[0] << " " << lab[1] << " " << lab[2] << endl;
 
@@ -98,21 +120,21 @@ int main(int argc,char ** argv)
 	cout << "  RGB --> XYZ (D65): " << xyzD65[0] << " " << xyzD65[1] << " " << xyzD65[2] << endl;
 
 	// XYZ (D65) --> RGB
-	rgb = ColorSpace::XYZtoRGB(xyzD65, ColorSpace::ILLUMINANT_D65, ColorSpace::SRGB);
+	rgb = ColorSpace::XYZtoRGB(xyzD65, ColorSpace::VCG_ILLUMINANT_D65, ColorSpace::SRGB);
 	rgb *= 255.0;
 	cout << "  XYZ (D65) --> RGB: " << rgb[0] << " " << rgb[1] << " " << rgb[2] << endl;
 
 	// RGB --> XYZ (D50)
-	vcg::Color4<double> xyzD50 = ColorSpace::RGBtoXYZ(color, ColorSpace::SRGB, ColorSpace::ILLUMINANT_D50);
+	vcg::Color4<double> xyzD50 = ColorSpace::RGBtoXYZ(color, ColorSpace::SRGB, ColorSpace::VCG_ILLUMINANT_D50);
 	cout << "  RGB --> XYZ (D50): " << xyzD50[0] << " " << xyzD50[1] << " " << xyzD50[2] << endl;
 
 	// XYZ (D50) --> RGB
-	rgb = ColorSpace::XYZtoRGB(xyzD50, ColorSpace::ILLUMINANT_D50, ColorSpace::SRGB);
+	rgb = ColorSpace::XYZtoRGB(xyzD50, ColorSpace::VCG_ILLUMINANT_D50, ColorSpace::SRGB);
 	rgb *= 255.0;
 	cout << "  XYZ (D50) --> RGB: " << rgb[0] << " " << rgb[1] << " " << rgb[2] << endl;
 
 	// Direct way
-	xyz = ColorSpace::chromaticAdaptation(xyzD65, ColorSpace::ILLUMINANT_D65, ColorSpace::ILLUMINANT_D50);
+	xyz = ColorSpace::chromaticAdaptation(xyzD65, ColorSpace::VCG_ILLUMINANT_D65, ColorSpace::VCG_ILLUMINANT_D50);
 	cout << "  XYZ (D65 --> D50): " << xyz[0] << " " << xyz[1] << " " << xyz[2] << endl << endl;
 
 	return 0;

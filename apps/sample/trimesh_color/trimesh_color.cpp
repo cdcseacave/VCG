@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004-2012                                           \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -28,11 +28,7 @@
 */
 #include<vcg/complex/complex.h>
 
-#include <vcg/complex/algorithms/update/bounding.h>
 #include <vcg/complex/algorithms/update/color.h>
-#include <vcg/complex/algorithms/update/normal.h>
-#include <vcg/complex/algorithms/update/flag.h>
-#include <vcg/complex/algorithms/clustering.h>
 
 // input output
 #include <wrap/io_trimesh/import.h>

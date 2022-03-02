@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004-2012                                           \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -32,8 +32,6 @@ Given a mesh (an icosahedron) for each face we get a few random samples over it,
 */
 
 #include<vcg/complex/complex.h>
-#include<vcg/complex/algorithms/update/topology.h>
-#include<vcg/complex/algorithms/update/normal.h>
 #include<vcg/complex/algorithms/create/platonic.h>
 #include<vcg/complex/algorithms/point_sampling.h>
 #include<wrap/io_trimesh/import_off.h>
@@ -90,7 +88,7 @@ int main( )
       ExactVec.push_back(p);
       vcg::Point3f off = vcg::math::GeneratePointInUnitBallUniform<float>(rnd);
       p+=off*scaleFac;
-      float w =  std::max(0.0, 1.0f-fabs(vcg::SignedDistancePlanePoint(pl,p))/scaleFac);
+      float w =  std::max(0.0f, 1.0f-fabs(vcg::SignedDistancePlanePoint(pl,p))/scaleFac);
       PerturbVec.push_back(p);
       WeightVec.push_back(w*w); // as weight we use the square of  (1-distance)
     }

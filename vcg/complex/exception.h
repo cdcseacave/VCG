@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004-2012                                           \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -22,6 +22,9 @@
 ****************************************************************************/
 #ifndef __VCG_EXCEPTION_H
 #define __VCG_EXCEPTION_H
+
+#include <stdexcept>
+#include <iostream>
 
 namespace vcg
 {
@@ -67,6 +70,51 @@ public:
       return buf;
     }
 };
-}
 
+class MissingPolygonalRequirementException : public std::runtime_error
+{
+public:
+  MissingPolygonalRequirementException(const std::string &err):std::runtime_error(err)
+  {
+    std::cout << "Mesh has to be composed by polygonal faces (not plain triangles) -" << err << "- \n";
+  }
+
+    virtual const char *what() const throw ()
+    {
+      static char buf[128]="Mesh has to be composed by polygonal faces (not plain triangles) ";
+      return buf;
+    }
+};
+
+class MissingTetrahedralRequirementException : public std::runtime_error
+{
+public:
+  MissingTetrahedralRequirementException(const std::string &err):std::runtime_error(err)
+  {
+    std::cout << "Mesh has to be composed by tetrahedras -" << err << "- \n";
+  }
+
+    virtual const char *what() const throw ()
+    {
+      static char buf[128]="Mesh has to be composed by tetrahedras";
+      return buf;
+    }
+};
+
+class MissingPreconditionException : public std::runtime_error
+{
+public:
+  MissingPreconditionException(const std::string &err):std::runtime_error(err)
+  {
+    std::cout << "Mesh does not satisfy the following precondition:" << err << "- \n";
+  }
+
+    virtual const char *what() const throw ()
+    {
+      static char buf[128]="Mesh does not satisfy precondition";
+      return buf;
+    }
+};
+
+} // end namespace vcg
 #endif // EXCEPTION_H

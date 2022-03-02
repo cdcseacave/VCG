@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004-2012                                           \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -23,9 +23,9 @@
 /*! \file trimesh_kdtree.cpp
 \ingroup code_sample
 
-\brief An example about using the kdtree and meshes
+\brief An example about using a kdtree to spatially index the vertexes of a mesh
 
-KdTree are one of the Spatial indexing data structure available.
+KdTree are one of the Spatial indexing data structures available.
 They are tailored for storing point-based structures and performing k-neighbours queries.
 In this simple example we simply compute the average distance of a vertex from its neighbours.
 \ref spatial_indexing for more Details
@@ -56,7 +56,7 @@ class MyMesh    : public tri::TriMesh< vector<MyVertex>, vector<MyFace> , vector
 
 int main( int argc, char **argv )
 {
-  if(argc<2) argv[1]="../../meshes/torus_irregular.ply";
+  if(argc<2) argv[1]=(char *)"../../meshes/torus_irregular.ply";
 
   MyMesh m;
   if(tri::io::Importer<MyMesh>::Open(m,argv[1])!=0)
@@ -68,14 +68,15 @@ int main( int argc, char **argv )
   VertexConstDataWrapper<MyMesh> ww(m);
 
   KdTree<float> tree(ww);
-  tree.setMaxNofNeighbors(3);
+  KdTree<float>::PriorityQueue queue;
+
   for (int j = 0; j < m.VN(); j++) {
-      tree.doQueryK(m.vert[j].cP());
-      int neighbours = tree.getNofFoundNeighbors();
+      tree.doQueryK(m.vert[j].cP(), 3, queue);
+      int neighbours = queue.getNofElements();
       float avgDist=0;
       for (int i = 0; i < neighbours; i++) {
-          int neightId = tree.getNeighborId(i);
-          avgDist+=Distance(m.vert[j].cP(),m.vert[neightId].cP());
+          int neightId = queue.getIndex(i);
+          avgDist += Distance(m.vert[j].cP(),m.vert[neightId].cP());
       }
       m.vert[j].Q() = avgDist/=neighbours;
   }

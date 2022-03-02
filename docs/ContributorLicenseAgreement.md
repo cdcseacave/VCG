@@ -8,7 +8,7 @@ The following terms are used throughout this agreement:
 * **Submitted** - conveyed to a Project via a pull request, commit, issue, or any form of electronic, written, or verbal communication with GitHub, contributors or maintainers.
 
 ## 1. Grant of Copyright License.
-Subject to the terms and conditions of this agreement, You grant to the Projects’ maintainers and to VCLab a perpetual, worldwide, non-exclusive, no-charge, royalty-free, irrevocable copyright license to reproduce, prepare derivative works of, publicly display, publicly perform, sublicense, and distribute Your contributions and such derivative works. Except for this license, You reserve all rights, title, and interest in your contributions.
+Subject to the terms and conditions of this agreement, You grant to the Projects’ maintainers and to VCLab a perpetual, worldwide, non-exclusive, no-charge, royalty-free, irrevocable copyright license to reproduce, prepare derivative works of, publicly display, publicly perform, sublicense, and distribute Your contributions and such derivative works. Except for this license, You reserve all rights, title, and interest in your contributions. You agree that your perpetual licensing grant will be applied to all Your contributions to VCLab's Projects during the validity (two years) of this agreement.
 
 ## 2. Grant of Patent License.
 Subject to the terms and conditions of this agreement, You grant to the Projects’ maintainers and to VCLab a perpetual, worldwide, non-exclusive, no-charge, royalty-free, irrevocable (except as stated in this section) patent license to make, have made, use, offer to sell, sell, import, and otherwise transfer your contributions, where such license applies only to those patent claims licensable by you that are necessarily infringed by your contribution or by combination of your contribution with the project to which this contribution was submitted.
@@ -18,20 +18,20 @@ If any entity institutes patent litigation - including cross-claim or countercla
 ## 3. Source of Contribution.
 Your contribution is either your original creation, based upon previous work that, to the best of your knowledge, is covered under an appropriate open source license and you have the right under that license to submit that work with modifications, whether created in whole or in part by you, or you have clearly identified the source of the contribution and any license or other restriction (like related patents, trademarks, and license agreements) of which you are personally aware.
 
-### 4. Details
-Name 
+### 4. Personal Details
+ | &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;   |  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;   |
+ :---:|:---:
+**Full real world First and Last name** |  **github user name**
+ &nbsp; |   &nbsp;
+**Email**  | **Physical home/office address**  
+&nbsp;|&nbsp;
+**Date of birth**  | **Place of birth**
+&nbsp; | &nbsp;
 
----
-Project Contributed
 
----
-Contribution (id of the pull request)
-
----
 Signature
 
 ---
 Date
 
 ---
-

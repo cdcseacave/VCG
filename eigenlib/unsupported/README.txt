@@ -13,7 +13,7 @@ In order to use an unsupported module you have to do either:
 
 If you are interested in contributing to one of them, or have other stuff
 you would like to share, feel free to contact us:
-http://eigen.tuxfamily.org/index.php?title=Main_Page#Mailing_list
+xxxp://eigen.tuxfamily.org/index.php?title=Main_Page#Mailing_list
 
 Any kind of contributions are much appreciated, even very preliminary ones.
 However, it:

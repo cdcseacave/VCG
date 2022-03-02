@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004                                                \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -27,7 +27,6 @@
 #include<vcg/complex/complex.h>
 #include<vcg/complex/algorithms/closest.h>
 #include<vcg/complex/algorithms/update/quality.h>
-#include<vcg/complex/algorithms/update/selection.h>
 
 
 #ifndef __VCGLIB_INTERSECTION_TRI_MESH
@@ -139,8 +138,8 @@ bool IntersectionPlaneMeshOld(TriMeshType & m,
 */
 template < typename  TriMeshType, typename EdgeMeshType, class ScalarType >
 bool IntersectionPlaneMesh(TriMeshType & m,
-									Plane3<ScalarType>  pl,
-									EdgeMeshType & em)
+                           Plane3<ScalarType>  pl,
+                           EdgeMeshType & em)
 {
   std::vector<Point3<ScalarType> > ptVec;
   std::vector<Point3<ScalarType> > nmVec;
@@ -148,9 +147,8 @@ bool IntersectionPlaneMesh(TriMeshType & m,
   typename TriMeshType::template PerVertexAttributeHandle < ScalarType > qH =
       tri::Allocator<TriMeshType> :: template AddPerVertexAttribute < ScalarType >(m,"TemporaryPlaneDistance");
 
-  typename TriMeshType::VertexIterator vi;
-  for(vi=m.vert.begin();vi!=m.vert.end();++vi) if(!(*vi).IsD())
-    qH[vi] =SignedDistancePlanePoint(pl,(*vi).cP());
+  for(auto vi=m.vert.begin();vi!=m.vert.end();++vi) if(!(*vi).IsD())
+    qH[vi] = SignedDistancePlanePoint(pl,(*vi).cP());
 
   for(size_t i=0;i<m.face.size();i++)
     if(!m.face[i].IsD())
@@ -159,7 +157,7 @@ bool IntersectionPlaneMesh(TriMeshType & m,
       nmVec.clear();
       for(int j=0;j<3;++j)
       {
-        if((qH[m.face[i].V0(j)] * qH[m.face[i].V1(j)])<0)
+       if((qH[m.face[i].V0(j)] * qH[m.face[i].V1(j)])<0)
        {
          const Point3<ScalarType> &p0 = m.face[i].V0(j)->cP();
          const Point3<ScalarType> &p1 = m.face[i].V1(j)->cP();
@@ -175,7 +173,11 @@ bool IntersectionPlaneMesh(TriMeshType & m,
          Point3<ScalarType> nn =(n0*fabs(q1) + n1*fabs(q0))/fabs(q0-q1);
          nmVec.push_back(nn);
        }
-        if(qH[m.face[i].V(j)]==0)  ptVec.push_back(m.face[i].V(j)->cP());
+       if (qH[m.face[i].V(j)] == 0)
+       {
+         ptVec.push_back(m.face[i].V(j)->cP());
+         nmVec.push_back(m.face[i].V(j)->cN());
+       }
       }
       if(ptVec.size()>=2)
       {
@@ -193,6 +195,26 @@ bool IntersectionPlaneMesh(TriMeshType & m,
     }
   tri::Allocator<TriMeshType> :: template DeletePerVertexAttribute < ScalarType >(m,qH);
 
+  //Clean-up: Remove duplicate vertex
+  tri::Clean<EdgeMeshType>::RemoveDuplicateVertex(em);
+     
+  //Clean-up: Sort edges ensuring orientation coherence  
+  for(size_t j=1; j < em.edge.size(); j++)
+  {
+    auto &n=em.edge[j-1].V(1);  
+    for(size_t i=j; i< em.edge.size(); i++)
+    {
+      auto & ei=em.edge[i];
+      if (ei.V(1) == n)
+        std::swap(ei.V(0), ei.V(1));        
+      if (ei.V(0) == n)
+      {
+        std::swap(em.edge[j], em.edge[i]);        
+        break;
+      }      
+    }
+  }
+
   return true;
 }
 
@@ -209,7 +231,6 @@ bool Intersection(Plane3<ScalarType>  pl,
 									IndexingType *grid,
 									typename std::vector<typename TriMeshType::FaceType*> &v)
 {
-	typedef typename TriMeshType::FaceContainer FaceContainer;
 	typedef IndexingType GridType;
 	typename TriMeshType::FaceIterator fi;
 	v.clear();
@@ -280,7 +301,7 @@ bool IntersectionRayMesh(
 	/* Baricentric coord 1*/ ScalarType &bar1,
 	/* Baricentric coord 2*/ ScalarType &bar2,
 	/* Baricentric coord 3*/ ScalarType &bar3,
-	/* FacePointer */ typename TriMeshType::FacePointer fp
+	/* FacePointer */ typename TriMeshType::FacePointer & fp
 	)
 {
 	//typedef typename TriMeshType::FaceContainer FaceContainer;

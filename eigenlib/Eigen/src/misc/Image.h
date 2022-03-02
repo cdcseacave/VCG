@@ -5,7 +5,7 @@
 //
 // This Source Code Form is subject to the terms of the Mozilla
 // Public License v. 2.0. If a copy of the MPL was not distributed
-// with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// with this file, You can obtain one at the mozilla.org home page
 
 #ifndef EIGEN_MISC_IMAGE_H
 #define EIGEN_MISC_IMAGE_H
@@ -38,7 +38,6 @@ template<typename _DecompositionType> struct image_retval_base
   typedef _DecompositionType DecompositionType;
   typedef typename DecompositionType::MatrixType MatrixType;
   typedef ReturnByValue<image_retval_base> Base;
-  typedef typename Base::Index Index;
 
   image_retval_base(const DecompositionType& dec, const MatrixType& originalMatrix)
     : m_dec(dec), m_rank(dec.rank()),
@@ -69,7 +68,6 @@ template<typename _DecompositionType> struct image_retval_base
   typedef typename DecompositionType::MatrixType MatrixType; \
   typedef typename MatrixType::Scalar Scalar; \
   typedef typename MatrixType::RealScalar RealScalar; \
-  typedef typename MatrixType::Index Index; \
   typedef Eigen::internal::image_retval_base<DecompositionType> Base; \
   using Base::dec; \
   using Base::originalMatrix; \

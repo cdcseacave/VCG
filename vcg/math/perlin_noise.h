@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004                                                \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -23,6 +23,8 @@
 
 #ifndef __VCGLIB_PERLIN_NOISE
 #define __VCGLIB_PERLIN_NOISE
+
+#include <cmath>
 
 namespace vcg
 {

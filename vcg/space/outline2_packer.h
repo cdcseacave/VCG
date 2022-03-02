@@ -1,8 +1,8 @@
-/****************************************************************************
+﻿/****************************************************************************
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004                                                \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -24,10 +24,9 @@
 #define __VCG_OUTLINE2_PACKER_H__
 
 #include <limits>
+#include <fstream>
 #include <stdio.h>
 #include <assert.h>
-#include <algorithm>
-#include <vector>
 #include <vcg/space/box2.h>
 #include <vcg/space/rect_packer.h>
 #include <vcg/space/point2.h>
@@ -47,29 +46,29 @@ class PolyPacker
 
 public:
 
-  static Box2f getPolyBB(const std::vector<Point2x> &poly)
+  static Box2x getPolyBB(const std::vector<Point2x> &poly)
   {
-    Box2f bb;
+    Box2x bb;
     for(size_t i=0;i<poly.size();++i)
       bb.Add(poly[i]);
 
     return bb;
   }
 
-  static Box2f getPolyOOBB(const std::vector<Point2x> &poly, float &rot)
+  static Box2x getPolyOOBB(const std::vector<Point2x> &poly, float &rot)
   {
     const int stepNum=32;
     float bestAngle;
     float bestArea = std::numeric_limits<float>::max();
-    Box2f bestBB;
+    Box2x bestBB;
 
     for(int i=0;i<stepNum;++i)
     {
       float angle = float(i)*(M_PI/2.0)/float(stepNum);
-      Box2f bb;
+      Box2x bb;
       for(size_t j=0;j<poly.size();++j)
       {
-        Point2f pp=poly[j];
+        Point2x pp=poly[j];
         pp.Rotate(angle);
         bb.Add(pp);
       }
@@ -88,7 +87,7 @@ public:
 static  bool PackAsEqualSquares(const std::vector< std::vector<Point2x> > &polyVec,
                   const Point2i containerSizeX,
                   std::vector<Similarity2x> &trVec,
-                  Point2x &coveredContainer)
+                  Point2x &/*coveredContainer*/)
 {
   int minSide = std::min(containerSizeX[0],containerSizeX[1]);
   const vcg::Point2i containerSize(minSide,minSide);
@@ -98,7 +97,7 @@ static  bool PackAsEqualSquares(const std::vector< std::vector<Point2x> > &polyV
 
   trVec.clear();
   trVec.resize(polyVec.size());
-  Box2f bbMax;
+  Box2x bbMax;
   std::vector<Box2x> bbVec;
   for(size_t i=0;i<polyVec.size();++i)
   {
@@ -139,26 +138,29 @@ static bool PackAsAxisAlignedRect(const std::vector< std::vector<Point2x> > &pol
     assert(polyVec[i].size()>0);
     bbVec.push_back(getPolyBB(polyVec[i]));
   }
-  return RectPacker<float>::Pack(bbVec,containerSizeX,trVec,coveredContainer);
+  return RectPacker<SCALAR_TYPE>::Pack(bbVec,containerSizeX,trVec,coveredContainer);
 }
 
 static bool PackAsObjectOrientedRect(const std::vector< std::vector<Point2x> > &polyVec,
                   const Point2i containerSizeX,
                   std::vector<Similarity2x> &trVec,
-                  Point2x &coveredContainer)
+                  Point2x &coveredContainer,
+                  SCALAR_TYPE border=0)
 {
   trVec.clear();
   trVec.resize(polyVec.size());
   std::vector<Box2x> bbVec;
-  std::vector<float> rotVec;
+  std::vector<SCALAR_TYPE> rotVec;
   for(size_t i=0;i<polyVec.size();++i)
   {
     float rot;
     bbVec.push_back(getPolyOOBB(polyVec[i],rot));
+    if (border>0)
+        bbVec.back().Offset(border);
     rotVec.push_back(rot);
   }
 
-  bool ret= RectPacker<float>::Pack(bbVec,containerSizeX,trVec,coveredContainer);
+  bool ret= RectPacker<SCALAR_TYPE>::Pack(bbVec,containerSizeX,trVec,coveredContainer);
 
   for(size_t i=0;i<polyVec.size();++i)
   {
@@ -211,26 +213,24 @@ static bool WritePolyVec(const std::vector< std::vector<Point2x> > &polyVec, con
 
 static bool ReadPolyVec(std::vector< std::vector<Point2x> > &polyVec, const char *filename)
 {
-  FILE *fp=fopen(filename,"r");
-  if(!fp) return false;
-  int sz;
-  fscanf(fp,"%i\n",&sz);
-  polyVec.clear();
-  polyVec.resize(sz);
-  for(size_t i=0;i<polyVec.size();++i)
-  {
-    fscanf(fp,"%i\n",&sz);
-    polyVec[i].resize(sz);
-    for(size_t j=0;j<polyVec[i].size();++j)
-    {
-      float x,y;
-      fscanf(fp,"%f %f",&x,&y);
-      polyVec[i][j].X()=x;
-      polyVec[i][j].Y()=y;
-    }
-  }
-  fclose(fp);
-  return true;
+	std::ifstream ifs(filename, std::ifstream::in);
+	if (!ifs.is_open()) return false;
+	int sz;
+	ifs >> sz;
+	polyVec.resize(sz);
+	for (std::size_t i = 0; i < sz; ++i){
+		int isz;
+		ifs >> isz;
+		polyVec[i].resize(isz);
+		for (std::size_t j = 0; j < isz; ++j){
+			float x, y;
+			ifs >> x >> y;
+			polyVec[i][j].X() = x;
+			polyVec[i][j].Y() = y;
+		}
+	}
+	ifs.close();
+	return true;
 }
 
 

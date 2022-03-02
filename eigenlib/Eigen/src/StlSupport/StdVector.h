@@ -6,7 +6,7 @@
 //
 // This Source Code Form is subject to the terms of the Mozilla
 // Public License v. 2.0. If a copy of the MPL was not distributed
-// with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// with this file, You can obtain one at the mozilla.org home page
 
 #ifndef EIGEN_STDVECTOR_H
 #define EIGEN_STDVECTOR_H
@@ -43,6 +43,9 @@ namespace std \
     } \
   }; \
 }
+
+// Don't specialize if containers are implemented according to C++11
+#if !EIGEN_HAS_CXX11_CONTAINERS
 
 namespace std {
 
@@ -122,5 +125,7 @@ namespace std {
 #endif
   };
 }
+#endif // !EIGEN_HAS_CXX11_CONTAINERS
+
 
 #endif // EIGEN_STDVECTOR_H

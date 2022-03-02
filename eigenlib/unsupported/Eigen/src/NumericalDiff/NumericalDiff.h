@@ -8,7 +8,7 @@
 //
 // This Source Code Form is subject to the terms of the Mozilla
 // Public License v. 2.0. If a copy of the MPL was not distributed
-// with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// with this file, You can obtain one at the mozilla.org home page
 
 #ifndef EIGEN_NUMERICAL_DIFF_H
 #define EIGEN_NUMERICAL_DIFF_H
@@ -28,7 +28,7 @@ enum NumericalDiffMode {
   * for the derivative, you should rather implement df() by yourself.
   *
   * More information on
-  * http://en.wikipedia.org/wiki/Numerical_differentiation
+  * xxxp://en.wikipedia.org/wiki/Numerical_differentiation
   *
   * Currently only "Forward" and "Central" scheme are implemented.
   */

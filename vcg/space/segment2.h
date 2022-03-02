@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004                                                \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -91,12 +91,10 @@ public:
     inline PointType MidPoint( ) const
     { return ( _p0 +  _p1) / ScalarType(2.0) ; }
       /// return the bounding box
-    inline Box2<ScalarType> BBox( ) const
+    inline void GetBBox(  Box2<ScalarType> &t) const
     {
-      Box2<ScalarType> t;
-      t.Add(_p0);
+      t.Set(_p0);
       t.Add(_p1);
-      return t;
     }
         /// returns segment length
     ScalarType Length()
@@ -144,7 +142,7 @@ typedef Segment2<float>  Segment2f;
 typedef Segment2<double> Segment2d;
 
 template <class ScalarType>
-Point2<ScalarType> ClosestPoint( Segment2<ScalarType> s, const Point2<ScalarType> & p)
+Point2<ScalarType> ClosestPoint(const Segment2<ScalarType> & s, const Point2<ScalarType> & p)
 {
 	vcg::Line2<ScalarType, true> l;
 	l.Set(s.P0(),s.P1()-s.P0());
@@ -159,7 +157,36 @@ Point2<ScalarType> ClosestPoint( Segment2<ScalarType> s, const Point2<ScalarType
 		return clos;
 }
 
-/*@}*/
+template <class ScalarType>
+ScalarType Distance(const Segment2<ScalarType> & s, const Point2<ScalarType> & p) {
+  const Point2<ScalarType> c = ClosestPoint(s, p);
+  return (c - p).Norm();
+}
+
+template <class S>
+class PointSegment2DEPFunctor {
+public:
+    typedef S ScalarType;
+    typedef Point2<ScalarType> QueryType;
+    static inline const Point2<ScalarType> &  Pos(const QueryType & qt)  {return qt;}
+
+    template <class EdgeType, class ScalarType>
+    inline bool operator () (const EdgeType & e, const Point2<ScalarType> & p,
+                             ScalarType & minDist, Point2<ScalarType> & q)
+    {
+        const Point2<typename EdgeType::ScalarType> fp = Point2<typename EdgeType::ScalarType>::Construct(p);
+        Point2<typename EdgeType::ScalarType> fq;
+        fq=ClosestPoint(e,fp);
+        ScalarType currD = (ScalarType)(fp-fq).Norm();
+
+        if (currD>minDist)return false;
+
+        minDist=currD;
+        q = Point2<ScalarType>::Construct(fq);
+        return true;
+    }
+};
+
 
 } // end namespace
 #endif

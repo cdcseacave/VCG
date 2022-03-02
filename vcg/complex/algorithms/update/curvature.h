@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004                                                \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -25,14 +25,12 @@
 #define VCGLIB_UPDATE_CURVATURE_
 
 #include <vcg/space/index/grid_static_ptr.h>
-#include <vcg/simplex/face/topology.h>
-#include <vcg/simplex/face/pos.h>
 #include <vcg/simplex/face/jumping_pos.h>
 #include <vcg/complex/algorithms/update/normal.h>
 #include <vcg/complex/algorithms/point_sampling.h>
 #include <vcg/complex/algorithms/intersection.h>
 #include <vcg/complex/algorithms/inertia.h>
-#include <eigenlib/Eigen/Core>
+#include <Eigen/Core>
 
 namespace vcg {
 namespace tri {
@@ -61,6 +59,8 @@ public:
     typedef vcg::face::VFIterator<FaceType> VFIteratorType;
     typedef typename MeshType::CoordType CoordType;
     typedef typename CoordType::ScalarType ScalarType;
+    typedef typename MeshType::VertexType::CurScalarType CurScalarType;
+    typedef typename MeshType::VertexType::CurVecType CurVecType;
 
 
 private:
@@ -246,8 +246,8 @@ public:
         CoordType Principal_Direction1 = T1 * c - T2 * s;
         CoordType Principal_Direction2 = T1 * s + T2 * c;
 
-        (*vi).PD1() = Principal_Direction1;
-        (*vi).PD2() = Principal_Direction2;
+        (*vi).PD1().Import(Principal_Direction1);
+        (*vi).PD2().Import(Principal_Direction2);
         (*vi).K1() =  Principal_Curvature1;
         (*vi).K2() =  Principal_Curvature2;
       }
@@ -353,16 +353,18 @@ If pointVSfaceInt==false the covariance is computed by (analytic)integration ove
         if( prod > bestv){bestv = prod; best = i;}
       }
 
-      (*vi).PD1()  = eigenvectors.GetColumn( (best+1)%3).normalized();
-      (*vi).PD2()  = eigenvectors.GetColumn( (best+2)%3).normalized();
+      (*vi).PD1().Import(eigenvectors.GetColumn( (best+1)%3).normalized());
+      (*vi).PD2().Import(eigenvectors.GetColumn( (best+2)%3).normalized());
 
       // project them to the plane identified by the normal
-      vcg::Matrix33<ScalarType> rot;
-      ScalarType angle = acos((*vi).PD1().dot((*vi).N()));
-      rot.SetRotateRad(  - (M_PI*0.5 - angle),(*vi).PD1()^(*vi).N());
+      vcg::Matrix33<CurScalarType> rot;
+      CurVecType NN = CurVecType::Construct((*vi).N());
+      CurScalarType angle;
+      angle = acos((*vi).PD1().dot(NN));
+      rot.SetRotateRad(  - (M_PI*0.5 - angle),(*vi).PD1()^NN);
       (*vi).PD1() = rot*(*vi).PD1();
-      angle = acos((*vi).PD2().dot((*vi).N()));
-      rot.SetRotateRad(  - (M_PI*0.5 - angle),(*vi).PD2()^(*vi).N());
+      angle = acos((*vi).PD2().dot(NN));
+      rot.SetRotateRad(  - (M_PI*0.5 - angle),(*vi).PD2()^NN);
       (*vi).PD2() = rot*(*vi).PD2();
 
 
@@ -408,13 +410,16 @@ static void MeanAndGaussian(MeshType & m)
   SimpleTempData<VertContainer, typename MeshType::CoordType> TDContr(m.vert);
 
   vcg::tri::UpdateNormal<MeshType>::PerVertexNormalized(m);
+  auto KH = vcg::tri::Allocator<MeshType>:: template GetPerVertexAttribute<ScalarType> (m, std::string("KH"));
+  auto KG = vcg::tri::Allocator<MeshType>:: template GetPerVertexAttribute<ScalarType> (m, std::string("KG"));
+  
   //Compute AreaMix in H (vale anche per K)
   for(vi=m.vert.begin(); vi!=m.vert.end(); ++vi) if(!(*vi).IsD())
   {
     (TDAreaPtr)[*vi].A = 0.0;
     (TDContr)[*vi]  =typename MeshType::CoordType(0.0,0.0,0.0);
-    (*vi).Kh() = 0.0;
-    (*vi).Kg() = (float)(2.0 * M_PI);
+    KH[*vi] = 0.0;
+    KG[*vi] = (ScalarType)(2.0 * M_PI);
   }
 
   for(fi=m.face.begin();fi!=m.face.end();++fi) if( !(*fi).IsD())
@@ -479,10 +484,10 @@ static void MeanAndGaussian(MeshType & m)
     TDContr[(*fi).V(0)] += ( e20v * (1.0/tan(angle1)) - e01v * (1.0/tan(angle2)) ) / 4.0;
     TDContr[(*fi).V(1)] += ( e01v * (1.0/tan(angle2)) - e12v * (1.0/tan(angle0)) ) / 4.0;
     TDContr[(*fi).V(2)] += ( e12v * (1.0/tan(angle0)) - e20v * (1.0/tan(angle1)) ) / 4.0;
-
-    (*fi).V(0)->Kg() -= angle0;
-    (*fi).V(1)->Kg() -= angle1;
-    (*fi).V(2)->Kg() -= angle2;
+    
+    KG[(*fi).V(0)] -= angle0;
+    KG[(*fi).V(1)] -= angle1;
+    KG[(*fi).V(2)] -= angle2;
 
 
     for(int i=0;i<3;i++)
@@ -498,7 +503,7 @@ static void MeanAndGaussian(MeshType & m)
         hp1.FlipV();
         hp1.NextB();
         e2=hp1.v->cP() - hp.v->cP();
-        (*fi).V(i)->Kg() -= math::Abs(Angle(e1,e2));
+        KG[(*fi).V(i)] -= math::Abs(Angle(e1,e2));
       }
     }
   }
@@ -507,13 +512,13 @@ static void MeanAndGaussian(MeshType & m)
   {
     if((TDAreaPtr)[*vi].A<=std::numeric_limits<ScalarType>::epsilon())
     {
-      (*vi).Kh() = 0;
-      (*vi).Kg() = 0;
+      KH[(*vi)] = 0;
+      KG[(*vi)] = 0;
     }
     else
     {
-      (*vi).Kh()  = (((TDContr)[*vi].dot((*vi).cN())>0)?1.0:-1.0)*((TDContr)[*vi] / (TDAreaPtr) [*vi].A).Norm();
-      (*vi).Kg() /= (TDAreaPtr)[*vi].A;
+      KH[(*vi)]  = (((TDContr)[*vi].dot((*vi).cN())>0)?1.0:-1.0)*((TDContr)[*vi] / (TDAreaPtr) [*vi].A).Norm();
+      KG[(*vi)] /= (TDAreaPtr)[*vi].A;
     }
   }
 }
@@ -523,77 +528,86 @@ static void MeanAndGaussian(MeshType & m)
 
     /**
     The function uses the VF adiacency to walk around the vertex.
-    \return It will return the voronoi area around the vertex.  If (norm == true) the mean and the gaussian curvature are normalized.
-     Based on the paper  <a href="http://www2.in.tu-clausthal.de/~hormann/papers/Dyn.2001.OTU.pdf">  <em> "Optimizing 3d triangulations using discrete curvature analysis" </em> </a>
-      */
-
-    static float ComputeSingleVertexCurvature(VertexPointer v, bool norm = true)
+    
+    Based on the paper  <a href="http://www2.in.tu-clausthal.de/~hormann/papers/Dyn.2001.OTU.pdf">
+    <em> "Optimizing 3d triangulations using discrete curvature analysis" </em> </a>
+    it compute an approximation of the gaussian and of the absolute mean curvature 
+    */
+static void PerVertexAbsoluteMeanAndGaussian(MeshType & m)
+{
+    tri::RequireVFAdjacency(m);
+    tri::RequireCompactness(m);
+    const bool areaNormalize = true;
+    const bool barycentricArea=false;
+    auto KH = vcg::tri::Allocator<MeshType>:: template GetPerVertexAttribute<ScalarType> (m, std::string("KH"));
+    auto KG = vcg::tri::Allocator<MeshType>:: template GetPerVertexAttribute<ScalarType> (m, std::string("KG"));
+    int faceCnt=0;
+    for(VertexIterator vi = m.vert.begin(); vi != m.vert.end(); ++vi)
     {
+        VertexPointer v=&*vi;
         VFIteratorType vfi(v);
-        float A = 0;
+        ScalarType A = 0;
 
-        v->Kh() = 0;
-        v->Kg() = 2 * M_PI;
+        KH[v] = 0;
+        ScalarType AngleDefect = (ScalarType)(2.0 * M_PI);;
 
         while (!vfi.End()) {
-            if (!vfi.F()->IsD()) {
+            faceCnt++;
                 FacePointer f = vfi.F();
+                CoordType nf = TriangleNormal(*f);
                 int i = vfi.I();
                 VertexPointer v0 = f->V0(i), v1 = f->V1(i), v2 = f->V2(i);
+                assert (v==v0);
 
-                float ang0 = math::Abs(Angle(v1->P() - v0->P(), v2->P() - v0->P() ));
-                float ang1 = math::Abs(Angle(v0->P() - v1->P(), v2->P() - v1->P() ));
-                float ang2 = M_PI - ang0 - ang1;
+                ScalarType ang0 = math::Abs(Angle(v1->P() - v0->P(), v2->P() - v0->P() ));
+                ScalarType ang1 = math::Abs(Angle(v0->P() - v1->P(), v2->P() - v1->P() ));
+                ScalarType ang2 = M_PI - ang0 - ang1;
 
-                float s01 = SquaredDistance(v1->P(), v0->P());
-                float s02 = SquaredDistance(v2->P(), v0->P());
+                ScalarType s01 = SquaredDistance(v1->P(), v0->P());
+                ScalarType s02 = SquaredDistance(v2->P(), v0->P());
 
                 // voronoi cell of current vertex
-                if (ang0 >= M_PI/2)
-                    A += (0.5f * DoubleArea(*f) - (s01 * tan(ang1) + s02 * tan(ang2)) / 8.0 );
-                else if (ang1 >= M_PI/2)
-                    A += (s01 * tan(ang0)) / 8.0;
-                else if (ang2 >= M_PI/2)
-                    A += (s02 * tan(ang0)) / 8.0;
-                else  // non obctuse triangle
-                    A += ((s02 / tan(ang1)) + (s01 / tan(ang2))) / 8.0;
-
+                if(barycentricArea)
+                    A+=vcg::DoubleArea(*f)/6.0;
+                else
+                {
+                    if (ang0 >= M_PI/2)
+                        A += (0.5f * DoubleArea(*f) - (s01 * tan(ang1) + s02 * tan(ang2)) / 8.0 );
+                    else if (ang1 >= M_PI/2)
+                        A += (s01 * tan(ang0)) / 8.0;
+                    else if (ang2 >= M_PI/2)
+                        A += (s02 * tan(ang0)) / 8.0;
+                    else  // non obctuse triangle
+                        A += ((s02 / tan(ang1)) + (s01 / tan(ang2))) / 8.0;
+                }
                 // gaussian curvature update
-                v->Kg() -= ang0;
+                AngleDefect -= ang0;
 
                 // mean curvature update
-                ang1 = math::Abs(Angle(f->N(), v1->N()));
-                ang2 = math::Abs(Angle(f->N(), v2->N()));
-                v->Kh() += ( (math::Sqrt(s01) / 2.0) * ang1 +
-                             (math::Sqrt(s02) / 2.0) * ang2 );
-            }
-
+                // Note that the standard abs mean curvature approximation would require
+                // to sum all the edges*diehedralAngle. Here with just VF adjacency
+                // we make a rough approximation that 1/2 of the edge len plus something
+                // that is half of the diedral angle
+                ang1 = math::Abs(Angle(nf, v1->N()+v0->N()));
+                ang2 = math::Abs(Angle(nf, v2->N()+v0->N()));
+                KH[v] += math::Sqrt(s01)*ang1 + math::Sqrt(s02)*ang2 ;
             ++vfi;
         }
 
-        v->Kh() /= 4.0f;
+        KH[v] /= 4.0;
 
-        if(norm) {
+        if(areaNormalize) {
             if(A <= std::numeric_limits<float>::epsilon()) {
-                v->Kh() = 0;
-                v->Kg() = 0;
+                KH[v] = 0;
+                KG[v] = 0;
             }
             else {
-                v->Kh() /= A;
-                v->Kg() /= A;
+                KH[v] /= A;
+                KG[v] = AngleDefect / A;
             }
         }
-
-        return A;
     }
-
-    static void PerVertex(MeshType & m)
-    {
-      tri::RequireVFAdjacency(m);
-
-      for(VertexIterator vi = m.vert.begin(); vi != m.vert.end(); ++vi)
-        ComputeSingleVertexCurvature(&*vi,false);
-    }
+}
 
 
 
@@ -610,7 +624,6 @@ static void MeanAndGaussian(MeshType & m)
     static void PrincipalDirectionsNormalCycle(MeshType & m){
       tri::RequireVFAdjacency(m);
       tri::RequireFFAdjacency(m);
-      tri::RequirePerFaceNormal(m);
 
         typename MeshType::VertexIterator vi;
 
@@ -627,8 +640,8 @@ static void MeanAndGaussian(MeshType & m)
                     Point3<ScalarType> normalized_edge = p.F()->V(p.F()->Next(p.VInd()))->cP() - (*vi).P();
                     ScalarType edge_length = normalized_edge.Norm();
                     normalized_edge/=edge_length;
-                    Point3<ScalarType> n1 = p.F()->cN();n1.Normalize();
-                    Point3<ScalarType> n2 = p.FFlip()->cN();n2.Normalize();
+                    Point3<ScalarType> n1 = NormalizedTriangleNormal(*(p.F()));
+                    Point3<ScalarType> n2 = NormalizedTriangleNormal(*(p.FFlip()));
                     ScalarType n1n2 = (n1 ^ n2).dot(normalized_edge);
                     n1n2 = std::max(std::min( ScalarType(1.0),n1n2),ScalarType(-1.0));
                     ScalarType beta = math::Asin(n1n2);
@@ -675,8 +688,8 @@ static void MeanAndGaussian(MeshType & m)
             int minI = (bestNormalIndex+1)%3;
             if(fabs(lambda[maxI]) < fabs(lambda[minI])) std::swap(maxI,minI);
 
-            (*vi).PD1() = *(Point3<ScalarType>*)(& vect[maxI][0]);
-            (*vi).PD2() = *(Point3<ScalarType>*)(& vect[minI][0]);
+            (*vi).PD1().Import(vect.GetColumn(maxI));
+            (*vi).PD2().Import(vect.GetColumn(minI));
             (*vi).K1() = lambda[2];
             (*vi).K2() = lambda[1];
         }
@@ -688,12 +701,12 @@ static void MeanAndGaussian(MeshType & m)
       CoordType c=m.bbox.Center();
       float maxRad = m.bbox.Diag()/2.0f;
 
-      for(int i=0;i<m.vert.size();++i) {
+      for(size_t i=0;i<m.vert.size();++i) {
         CoordType dd = m.vert[i].P()-c;
         dd.Normalize();
-        m.vert[i].PD1()=dd^m.vert[i].N();
+        m.vert[i].PD1().Import(dd^m.vert[i].N());
         m.vert[i].PD1().Normalize();
-        m.vert[i].PD2()=m.vert[i].N()^m.vert[i].PD1();
+        m.vert[i].PD2().Import(m.vert[i].N()^CoordType::Construct(m.vert[i].PD1()));
         m.vert[i].PD2().Normalize();
         // Now the anisotropy
         // the idea is that the ratio between the two direction is at most <anisotropyRatio>
@@ -706,8 +719,8 @@ static void MeanAndGaussian(MeshType & m)
         const float curRatio = minRatio + (maxRatio-minRatio)*q;
         float pd1Len = sqrt(1.0/(1+curRatio*curRatio));
         float pd2Len = curRatio * pd1Len;
-        assert(fabs(curRatio - pd2Len/pd1Len)<0.0000001);
-        assert(fabs(pd1Len*pd1Len + pd2Len*pd2Len - 1.0f)<0.0001);
+//        assert(fabs(curRatio - pd2Len/pd1Len)<0.0000001);
+//        assert(fabs(pd1Len*pd1Len + pd2Len*pd2Len - 1.0f)<0.0001);
         m.vert[i].PD1() *= pd1Len;
         m.vert[i].PD2() *= pd2Len;
       }

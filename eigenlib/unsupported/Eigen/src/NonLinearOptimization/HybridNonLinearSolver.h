@@ -8,7 +8,7 @@
 //
 // This Source Code Form is subject to the terms of the Mozilla
 // Public License v. 2.0. If a copy of the MPL was not distributed
-// with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// with this file, You can obtain one at the mozilla.org home page
 
 #ifndef EIGEN_HYBRIDNONLINEARSOLVER_H
 #define EIGEN_HYBRIDNONLINEARSOLVER_H
@@ -150,7 +150,7 @@ HybridNonLinearSolver<FunctorType,Scalar>::solveInit(FVectorType  &x)
     fjac.resize(n, n);
     if (!useExternalScaling)
         diag.resize(n);
-    eigen_assert( (!useExternalScaling || diag.size()==n) || "When useExternalScaling is set, the caller must provide a valid 'diag'");
+    eigen_assert( (!useExternalScaling || diag.size()==n) && "When useExternalScaling is set, the caller must provide a valid 'diag'");
 
     /* Function Body */
     nfev = 0;
@@ -390,7 +390,7 @@ HybridNonLinearSolver<FunctorType,Scalar>::solveNumericalDiffInit(FVectorType  &
     fvec.resize(n);
     if (!useExternalScaling)
         diag.resize(n);
-    eigen_assert( (!useExternalScaling || diag.size()==n) || "When useExternalScaling is set, the caller must provide a valid 'diag'");
+    eigen_assert( (!useExternalScaling || diag.size()==n) && "When useExternalScaling is set, the caller must provide a valid 'diag'");
 
     /* Function Body */
     nfev = 0;

@@ -148,7 +148,7 @@ public:
 
     @param glw the GL widget.
   */
-  virtual void Render(QGLWidget* glw);
+  virtual void Render(QGLWidget* glw,QPainter* p = NULL);
 
   /*!
     @brief Reset the position and/or the rotation of the coordinate frame.
@@ -212,8 +212,8 @@ public:
 
     @param primary the primary direction of alignment.
     @param secondary the secondary direction of alignment.
-    @param axis_1 the name of the axis to align to the primary direction, must be a char choosen from 'X', 'Y' and 'Z'
-    @param axis_2 the name of the axis to align to the secondary direction, must be different from axis_1 and must be a char choosen from 'X', 'Y', 'Z' and ' '; if the char is ' ' the axis is choosen automatically.
+    @param axis_1 the name of the axis to align to the primary direction, must be a char chosen from 'X', 'Y' and 'Z'
+    @param axis_2 the name of the axis to align to the secondary direction, must be different from axis_1 and must be a char chosen from 'X', 'Y', 'Z' and ' '; if the char is ' ' the axis is chosen automatically.
   */
   virtual void AlignWith(const Point3f primary, const Point3f secondary, const char axis_1, const char axis_2);
 
@@ -222,7 +222,7 @@ protected:
   Point3f position;
   Quaternionf rotation;
 
-  // functions: 
+  // functions:
   virtual void Move(const Similarityf);
   void RotateToAlign(const Point3f, const Point3f);
 

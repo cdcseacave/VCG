@@ -5,13 +5,13 @@
 //
 // This Source Code Form is subject to the terms of the Mozilla
 // Public License v. 2.0. If a copy of the MPL was not distributed
-// with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// with this file, You can obtain one at the mozilla.org home page
 
 namespace Eigen { 
 
 namespace internal {
 
-  // This FFT implementation was derived from kissfft http:sourceforge.net/projects/kissfft
+  // This FFT implementation was derived from kissfft xxxp:sourceforge.net/projects/kissfft
   // Copyright 2003-2009 Mark Borgerding
 
 template <typename _Scalar>

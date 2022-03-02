@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004                                                \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -124,6 +124,41 @@ void SphereSphereDistance(const Sphere3<ScalarType> &sphere0,
   return dist;
 }
 
+/*
+* Computes the minimum squared distance between a between a point and a plane
+* @param[in] pl			The input line
+* @param[in] p          The input point
+* @param[out] closest	The closest point
+* @param[out] dist		The squared distance
+*/
+template <class ScalarType>
+void  PlanePointSquaredDistance(const vcg::Plane3<ScalarType> &Pl,
+                                const Point3<ScalarType> &p,
+                                Point3<ScalarType> &closest,
+                                ScalarType &dist)
+{
+    closest=Pl.Projection(p);
+    dist= (closest - p).SquaredNorm();
+}
+
+
+/*
+* Computes the minimum squared distance between a between a point and a plane
+* @param[in] pl			The input line
+* @param[in] p          The input point
+* @param[out] closest	The closest point
+* @param[out] dist		The squared distance
+*/
+template <class ScalarType>
+ScalarType  PlanePointSquaredDistance(const vcg::Plane3<ScalarType> &Pl,
+                                    const Point3<ScalarType> &p)
+{
+    ScalarType dist;
+    vcg::Point3<ScalarType> closest;
+    PlanePointSquaredDistance(Pl,p,closest,dist);
+    return (dist);
+}
+
 
 /*
 * Computes the minimum squared distance between a between a point and a line
@@ -239,7 +274,7 @@ void SegmentPointSquaredDistance( const Segment3<ScalarType> &s,
 		ScalarType  t = ((p-s.P0())*e)/eSquaredNorm;
 		if(t<0)      t = 0;
 		else if(t>1) t = 1;
-		closest = s.P0()+e*t;
+		closest = s.P0() * (1.0 - t) + s.P1() * t;
 		sqr_dist = SquaredDistance(p,closest);
 		assert(!math::IsNAN(sqr_dist));
 	}
@@ -345,7 +380,7 @@ void SegmentSegmentDistance(const vcg::Segment3<ScalarType> &s0,
 	dist=(closest0-closest1).Norm();
 }
 
- /* @brief Computes the distance between a triangle and a point.
+/** @brief Computes the distance between a triangle and a point.
  *
  * @param t         reference to the triangle
  * @param q         point location
@@ -412,7 +447,7 @@ void TrianglePointDistance(const vcg::Triangle3<ScalarType> &t,
 }
 
 
-/*
+/**
 * return the distance between a triangle and a segment
 * @param[in] t				The input triangle
 * @param[in] s				The input segment
@@ -437,11 +472,11 @@ void TriangleSegmentDistance(const vcg::Triangle3<ScalarType> &t,
 	///project endpoints and see if they fall into the triangle
 	vcg::Plane3<ScalarType> pl3;
 	pl3.Init(t.P(0),t.P(1),t.P(2));
-	CoordType pj0=pl3.Projection(s.P(0));
-	CoordType pj1=pl3.Projection(s.P(1));
+    CoordType pj0=pl3.Projection(s.P0());
+    CoordType pj1=pl3.Projection(s.P1());
 	///take distances
-	ScalarType dpj0=(pj0-s.P(0)).Norm();
-	ScalarType dpj1=(pj1-s.P(1)).Norm();
+    ScalarType dpj0=(pj0-s.P0()).Norm();
+    ScalarType dpj1=(pj1-s.P1()).Norm();
 
 	///test if they fall inside the triangle
 	CoordType bary0,bary1;

@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004                                                \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -143,7 +143,7 @@ namespace vcg
 					int nofVertices, nofFaces, nofEdges;
 					int id0, id1, id2;
 					int eid0, eid1, eid2;
-					Point3f v;
+                    typename MESH_TYPE::CoordType v;
 
 					QString line;
 					QStringList sa;
@@ -185,7 +185,7 @@ namespace vcg
 						}
 
 						sa = line.split(' ');
-						if (!sa.size()>=3)
+						if (!(sa.size()>=3))
 						{
 							std::cerr << "Error parsing vertex " << line.toLocal8Bit().data() << "\n";
 							return InvalidFile;
@@ -213,7 +213,7 @@ namespace vcg
 						}
 
 						sa = line.split(' ');
-						if (!sa.size()>=2)
+						if (!(sa.size()>=2))
 						{
 							std::cerr << "Error parsing edge " << line.toLocal8Bit().data() << "\n";
 							return InvalidFile;
@@ -238,7 +238,7 @@ namespace vcg
 						}
 
 						sa = line.split(' ');
-						if (!sa.size()>=3)
+						if (!(sa.size()>=3))
 						{
 							std::cerr << "Error parsing face " << line.toLocal8Bit().data() << "\n";
 							return InvalidFile;

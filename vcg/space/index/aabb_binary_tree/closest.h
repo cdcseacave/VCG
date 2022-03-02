@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004                                                \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -59,7 +59,6 @@ public:
 
 	template <class OBJPOINTDISTANCEFUNCT>
 	static inline ObjPtr Closest(TreeType & tree, OBJPOINTDISTANCEFUNCT & getPointDistance, const CoordType & p, const ScalarType & maxDist, ScalarType & minDist, CoordType & q) {
-		typedef OBJPOINTDISTANCEFUNCT ObjPointDistanceFunct;
 		typedef std::vector<NodeType *> NodePtrVector;
 		typedef typename NodePtrVector::const_iterator NodePtrVector_ci;
 

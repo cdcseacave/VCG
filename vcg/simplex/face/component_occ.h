@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004                                                \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -26,9 +26,6 @@ OCC = Optional Component Compact
 compare with OCF(Optional Component Fast)
 */
 
-#ifndef __VCG_MESH
-#error "This file should not be included alone. It is automatically included by complex.h"
-#endif
 #ifndef __VCG_FACE_PLUS_COMPONENT_OCC
 #define __VCG_FACE_PLUS_COMPONENT_OCC
 

@@ -38,9 +38,9 @@
 template<typename POINTTYPE>
 struct CoordNumber{public:	static unsigned int coord()	{		return 0; 	}};
 
-template<> struct CoordNumber<vcg::Point2f> { public:	static unsigned int coord() { return 2;	} };
-template<> struct CoordNumber<vcg::Point3f> { public:	static unsigned int coord() {	return 3;	} };
-template<> struct CoordNumber<vcg::Point4f> { public: static unsigned int coord() {	return 4;	} };
+template<typename Scalar> struct CoordNumber<vcg::Point2<Scalar>> { public:	static unsigned int coord() {	return 2;	} };
+template<typename Scalar> struct CoordNumber<vcg::Point3<Scalar>> { public:	static unsigned int coord() {	return 3;	} };
+template<typename Scalar> struct CoordNumber<vcg::Point4<Scalar>> { public:	static unsigned int coord() {	return 4;	} };
 
 template<> struct CoordNumber<vcg::Color4b> { public:	static unsigned int coord() { return 4;	} };
 
@@ -760,7 +760,7 @@ namespace Tags
 	class BindVertexInputTag : public XMLTag
 	{
 	public:
-		BindVertexInputTag(const QString& semantic,const QString& input_semantic,const QString& input_set)
+		BindVertexInputTag(const QString& semantic,const QString& input_semantic,const QString& /*input_set*/)
 			:XMLTag("bind_vertex_input")
 		{
 			_attributes.push_back(TagAttribute("semantic",semantic));

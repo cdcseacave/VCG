@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004                                                \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -20,10 +20,13 @@
 * for more details.                                                         *
 *                                                                           *
 ****************************************************************************/
-#include <vcg/complex/complex.h>
 
 #ifndef __VCG_HEDGE_COMPONENT
 #define __VCG_HEDGE_COMPONENT
+
+#include <cassert>
+#include <vector>
+#include <string>
 
 namespace vcg {
 	namespace hedge {

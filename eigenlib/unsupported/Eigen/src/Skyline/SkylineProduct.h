@@ -5,7 +5,7 @@
 //
 // This Source Code Form is subject to the terms of the Mozilla
 // Public License v. 2.0. If a copy of the MPL was not distributed
-// with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// with this file, You can obtain one at the mozilla.org home page
 
 #ifndef EIGEN_SKYLINEPRODUCT_H
 #define EIGEN_SKYLINEPRODUCT_H
@@ -14,8 +14,8 @@ namespace Eigen {
 
 template<typename Lhs, typename Rhs, int ProductMode>
 struct SkylineProductReturnType {
-    typedef const typename internal::nested<Lhs, Rhs::RowsAtCompileTime>::type LhsNested;
-    typedef const typename internal::nested<Rhs, Lhs::RowsAtCompileTime>::type RhsNested;
+    typedef const typename internal::nested_eval<Lhs, Rhs::RowsAtCompileTime>::type LhsNested;
+    typedef const typename internal::nested_eval<Rhs, Lhs::RowsAtCompileTime>::type RhsNested;
 
     typedef SkylineProduct<LhsNested, RhsNested, ProductMode> Type;
 };
@@ -49,7 +49,7 @@ struct internal::traits<SkylineProduct<LhsNested, RhsNested, ProductMode> > {
         | EvalBeforeAssigningBit
         | EvalBeforeNestingBit,
 
-        CoeffReadCost = Dynamic
+        CoeffReadCost = HugeCost
     };
 
     typedef typename internal::conditional<ResultIsSkyline,

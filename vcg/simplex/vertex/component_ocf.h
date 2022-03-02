@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004                                                \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -25,25 +25,27 @@
 OCF = Optional Component Fast (hopefully)
 compare with OCC(Optional Component Compact)
 */
-#ifndef __VCG_MESH
-#error "This file should not be included alone. It is automatically included by complex.h"
-#endif
+
 #ifndef __VCG_VERTEX_PLUS_COMPONENT_OCF
 #define __VCG_VERTEX_PLUS_COMPONENT_OCF
-#ifndef __VCG_MESH
-#error "This file should not be included alone. It is automatically included by complex.h"
-#endif
+
+#include <vector>
+#include <string>
+
+#include <vcg/space/color4.h>
+#include <vcg/space/texcoord2.h>
+
 
 namespace vcg {
-	namespace vertex {
+    namespace vertex {
 /*
 All the Components that can be added to a vertex should be defined in the namespace vert:
 
 */
 template <class VALUE_TYPE>
 class vector_ocf: public std::vector<VALUE_TYPE> {
-	typedef std::vector<VALUE_TYPE> BaseType;
-	typedef typename vector_ocf<VALUE_TYPE>::iterator ThisTypeIterator;
+    typedef std::vector<VALUE_TYPE> BaseType;
+    typedef typename vector_ocf<VALUE_TYPE>::iterator ThisTypeIterator;
 
 public:
   vector_ocf():std::vector<VALUE_TYPE>()
@@ -79,164 +81,167 @@ public:
 
     void pop_back();
 
-	void resize(const unsigned int & _size)
-	{
-		const unsigned int oldsize = BaseType::size();
-			BaseType::resize(_size);
-		if(oldsize<_size){
-			ThisTypeIterator firstnew = BaseType::begin();
-			advance(firstnew,oldsize);
-			_updateOVP(firstnew,(*this).end());
-		}
-		if (ColorEnabled)         CV.resize(_size);
-		if (QualityEnabled)       QV.resize(_size,0);
-		if (MarkEnabled)          MV.resize(_size);
-		if (NormalEnabled)        NV.resize(_size);
-		if (TexCoordEnabled)      TV.resize(_size);
-		if (VFAdjacencyEnabled)   AV.resize(_size);
-		if (CurvatureEnabled)     CuV.resize(_size);
-		if (CurvatureDirEnabled)  CuDV.resize(_size);
-		if (RadiusEnabled)        RadiusV.resize(_size);
-	}
+    void resize(size_t _size)
+    {
+        const size_t oldsize = BaseType::size();
+            BaseType::resize(_size);
+        if(oldsize<_size){
+            ThisTypeIterator firstnew = BaseType::begin();
+            advance(firstnew,oldsize);
+            _updateOVP(firstnew,(*this).end());
+        }
+        if (ColorEnabled)         CV.resize(_size);
+        if (QualityEnabled)       QV.resize(_size,0);
+        if (MarkEnabled)          MV.resize(_size);
+        if (NormalEnabled)        NV.resize(_size);
+        if (TexCoordEnabled)      TV.resize(_size);
+        if (VFAdjacencyEnabled)   AV.resize(_size,VFAdjType::Zero());
+        if (CurvatureEnabled)     CuV.resize(_size);
+        if (CurvatureDirEnabled)  CuDV.resize(_size);
+        if (RadiusEnabled)        RadiusV.resize(_size);
+    }
 
-	void reserve(const unsigned int & _size)
-	{
-		BaseType::reserve(_size);
-		if (ColorEnabled)        CV.reserve(_size);
-		if (QualityEnabled)      QV.reserve(_size);
-		if (MarkEnabled)         MV.reserve(_size);
-		if (NormalEnabled)       NV.reserve(_size);
-		if (TexCoordEnabled)     TV.reserve(_size);
-		if (VFAdjacencyEnabled)  AV.reserve(_size);
-		if (CurvatureEnabled)    CuV.reserve(_size);
-		if (CurvatureDirEnabled) CuDV.reserve(_size);
-		if (RadiusEnabled)       RadiusV.reserve(_size);
-	}
+    void reserve(size_t _size)
+    {
+        BaseType::reserve(_size);
+        if (ColorEnabled)        CV.reserve(_size);
+        if (QualityEnabled)      QV.reserve(_size);
+        if (MarkEnabled)         MV.reserve(_size);
+        if (NormalEnabled)       NV.reserve(_size);
+        if (TexCoordEnabled)     TV.reserve(_size);
+        if (VFAdjacencyEnabled)  AV.reserve(_size);
+        if (CurvatureEnabled)    CuV.reserve(_size);
+        if (CurvatureDirEnabled) CuDV.reserve(_size);
+        if (RadiusEnabled)       RadiusV.reserve(_size);
+    }
 
-	void _updateOVP(ThisTypeIterator lbegin, ThisTypeIterator lend)
-	{
-		ThisTypeIterator vi;
-		for(vi=lbegin;vi!=lend;++vi)
-				(*vi)._ovp=this;
-	}
+    void _updateOVP(ThisTypeIterator lbegin, ThisTypeIterator lend)
+    {
+        ThisTypeIterator vi;
+        for(vi=lbegin;vi!=lend;++vi)
+                (*vi)._ovp=this;
+    }
 
 ////////////////////////////////////////
 // Enabling Eunctions
 
 bool IsQualityEnabled() const {return QualityEnabled;}
 void EnableQuality() {
-	assert(VALUE_TYPE::HasQualityOcf());
-	QualityEnabled=true;
-	QV.resize((*this).size(),0);
+    assert(VALUE_TYPE::HasQualityOcf());
+    QualityEnabled=true;
+    QV.resize((*this).size(),0);
 }
 void DisableQuality() {
-	assert(VALUE_TYPE::HasQualityOcf());
-	QualityEnabled=false;
-	QV.clear();
+    assert(VALUE_TYPE::HasQualityOcf());
+    QualityEnabled=false;
+    QV.clear();
 }
 
 bool IsColorEnabled() const {return ColorEnabled;}
 void EnableColor() {
-	assert(VALUE_TYPE::HasColorOcf());
-	ColorEnabled=true;
-	CV.resize((*this).size());
+    assert(VALUE_TYPE::HasColorOcf());
+    ColorEnabled=true;
+    CV.resize((*this).size());
 }
 void DisableColor() {
-	assert(VALUE_TYPE::HasColorOcf());
-	ColorEnabled=false;
-	CV.clear();
+    assert(VALUE_TYPE::HasColorOcf());
+    ColorEnabled=false;
+    CV.clear();
 }
 
 bool IsMarkEnabled() const {return MarkEnabled;}
 void EnableMark() {
-	assert(VALUE_TYPE::HasMarkOcf());
-	MarkEnabled=true;
-	MV.resize((*this).size(),0);
+    assert(VALUE_TYPE::HasMarkOcf());
+    MarkEnabled=true;
+    MV.resize((*this).size(),0);
 }
 void DisableMark() {
-	assert(VALUE_TYPE::HasMarkOcf());
-	MarkEnabled=false;
-	MV.clear();
+    assert(VALUE_TYPE::HasMarkOcf());
+    MarkEnabled=false;
+    MV.clear();
 }
 
 bool IsNormalEnabled() const {return NormalEnabled;}
 void EnableNormal() {
-	assert(VALUE_TYPE::HasNormalOcf());
-	NormalEnabled=true;
-	NV.resize((*this).size());
+    assert(VALUE_TYPE::HasNormalOcf());
+    NormalEnabled=true;
+    NV.resize((*this).size());
 }
 void DisableNormal() {
-	assert(VALUE_TYPE::HasNormalOcf());
-	NormalEnabled=false;
-	NV.clear();
+    assert(VALUE_TYPE::HasNormalOcf());
+    NormalEnabled=false;
+    NV.clear();
 }
 
 bool IsVFAdjacencyEnabled() const {return VFAdjacencyEnabled;}
 void EnableVFAdjacency() {
-	assert(VALUE_TYPE::HasVFAdjacencyOcf());
-	VFAdjacencyEnabled=true;
-	VFAdjType zero; zero._fp=0; zero._zp=-1;
-	AV.resize((*this).size(),zero);
+    assert(VALUE_TYPE::HasVFAdjacencyOcf());
+    VFAdjacencyEnabled=true;
+    AV.resize((*this).size(),VFAdjType::Zero());
 }
 void DisableVFAdjacency() {
-	assert(VALUE_TYPE::HasVFAdjacencyOcf());
-	VFAdjacencyEnabled=false;
-	AV.clear();
+    assert(VALUE_TYPE::HasVFAdjacencyOcf());
+    VFAdjacencyEnabled=false;
+    AV.clear();
 }
 
 bool IsCurvatureEnabled() const {return CurvatureEnabled;}
 void EnableCurvature() {
-	assert(VALUE_TYPE::HasCurvatureOcf());
-	CurvatureEnabled=true;
-	CuV.resize((*this).size());
+    assert(VALUE_TYPE::HasCurvatureOcf());
+    CurvatureEnabled=true;
+    CuV.resize((*this).size());
 }
 void DisableCurvature() {
-	assert(VALUE_TYPE::HasCurvatureOcf());
-	CurvatureEnabled=false;
-	CuV.clear();
+    assert(VALUE_TYPE::HasCurvatureOcf());
+    CurvatureEnabled=false;
+    CuV.clear();
 }
 
 bool IsCurvatureDirEnabled() const {return CurvatureDirEnabled;}
 void EnableCurvatureDir() {
-	assert(VALUE_TYPE::HasCurvatureDirOcf());
-	CurvatureDirEnabled=true;
-	CuDV.resize((*this).size());
+    assert(VALUE_TYPE::HasCurvatureDirOcf());
+    CurvatureDirEnabled=true;
+    CuDV.resize((*this).size());
 }
 void DisableCurvatureDir() {
-	assert(VALUE_TYPE::HasCurvatureDirOcf());
-	CurvatureDirEnabled=false;
-	CuDV.clear();
+    assert(VALUE_TYPE::HasCurvatureDirOcf());
+    CurvatureDirEnabled=false;
+    CuDV.clear();
 }
 
 bool IsRadiusEnabled() const {return RadiusEnabled;}
 void EnableRadius() {
-	assert(VALUE_TYPE::HasRadiusOcf());
-	RadiusEnabled=true;
-	RadiusV.resize((*this).size());
+    assert(VALUE_TYPE::HasRadiusOcf());
+    RadiusEnabled=true;
+    RadiusV.resize((*this).size());
 }
 void DisableRadius() {
-	assert(VALUE_TYPE::HasRadiusOcf());
-	RadiusEnabled=false;
-	RadiusV.clear();
+    assert(VALUE_TYPE::HasRadiusOcf());
+    RadiusEnabled=false;
+    RadiusV.clear();
 }
 
 
 bool IsTexCoordEnabled() const {return TexCoordEnabled;}
 void EnableTexCoord() {
-	assert(VALUE_TYPE::HasTexCoordOcf());
-	TexCoordEnabled=true;
-	TV.resize((*this).size());
+    assert(VALUE_TYPE::HasTexCoordOcf());
+    TexCoordEnabled=true;
+    TV.resize((*this).size());
 }
 void DisableTexCoord() {
-	assert(VALUE_TYPE::HasTexCoordOcf());
-	TexCoordEnabled=false;
-	TV.clear();
+    assert(VALUE_TYPE::HasTexCoordOcf());
+    TexCoordEnabled=false;
+    TV.clear();
 }
 
 struct VFAdjType {
-	typename VALUE_TYPE::FacePointer _fp ;
-	int _zp ;
-	};
+	VFAdjType():_fp(0),_zp(-1) {}
+  VFAdjType(typename VALUE_TYPE::FacePointer fp, int zp):_fp(fp),_zp(zp){}
+    typename VALUE_TYPE::FacePointer _fp ;
+    int _zp ;
+    static VFAdjType Zero() { return VFAdjType(0,-1); }
+    bool IsNull() const { return (_zp ==-1); }
+    };
 
 public:
   std::vector<typename VALUE_TYPE::ColorType> CV;
@@ -269,16 +274,20 @@ public:
 
 template <class T> class VFAdjOcf: public T {
 public:
-	typename T::FacePointer &VFp()       {
-		assert((*this).Base().VFAdjacencyEnabled);
-		return (*this).Base().AV[(*this).Index()]._fp;
-	}
-	typename T::FacePointer cVFp() const {
-		if(! (*this).Base().VFAdjacencyEnabled ) return 0;
-		else return (*this).Base().AV[(*this).Index()]._fp;
-	}
+    typename T::FacePointer &VFp()       {
+        assert((*this).Base().VFAdjacencyEnabled);
+        return (*this).Base().AV[(*this).Index()]._fp;
+    }
+    typename T::FacePointer cVFp() const {
+        if(! (*this).Base().VFAdjacencyEnabled ) return 0;
+        else return (*this).Base().AV[(*this).Index()]._fp;
+    }
 
     int &VFi()       {
+        assert((*this).Base().VFAdjacencyEnabled);
+        return (*this).Base().AV[(*this).Index()]._zp;
+    }
+    int  VFi() const {
         assert((*this).Base().VFAdjacencyEnabled);
         return (*this).Base().AV[(*this).Index()]._zp;
     }
@@ -423,73 +432,46 @@ public:
 };
 
 
-///*-------------------------- CURVATURE  ----------------------------------*/
-
-template <class A, class TT> class CurvatureOcf: public TT {
-public:
-  typedef Point2<A> CurvatureType;
-  typedef typename CurvatureType::ScalarType ScalarType;
-
-  ScalarType &Kh(){  assert((*this).Base().CurvatureEnabled); return (*this).Base().CuV[(*this).Index()][0];}
-  ScalarType &Kg(){  assert((*this).Base().CurvatureEnabled); return (*this).Base().CuV[(*this).Index()][1];}
-  ScalarType cKh() const { assert((*this).Base().CurvatureEnabled); return (*this).Base().CuV[(*this).Index()][0];}
-  ScalarType cKg() const { assert((*this).Base().CurvatureEnabled); return (*this).Base().CuV[(*this).Index()][1];}
-
-  template <class RightVertexType>
-  void ImportData(const RightVertexType & rightV){
-    if((*this).IsCurvatureEnabled() && rightV.IsCurvatureEnabled())
-    {
-      (*this).Base().CuV[(*this).Index()][0] = rightV.cKh();
-      (*this).Base().CuV[(*this).Index()][1] = rightV.cKg();
-    }
-    TT::ImportData(rightV);
-  }
-
-  inline bool IsCurvatureEnabled( )    const  { return this->Base().IsCurvatureDirEnabled(); }
-  static bool HasCurvature() { return true; }
-  static bool HasCurvatureOcf()   { return true; }
-};
-
-template <class T> class CurvaturefOcf: public CurvatureOcf<float, T> {public: static void Name(std::vector<std::string> & name){name.push_back(std::string("CurvaturefOcf"));T::Name(name);} };
-template <class T> class CurvaturedOcf: public CurvatureOcf<double, T> {public: static void Name(std::vector<std::string> & name){name.push_back(std::string("CurvaturedOcf"));T::Name(name);} };
-
-
 ///*-------------------------- CURVATURE DIR ----------------------------------*/
 
 template <class S>
 struct CurvatureDirTypeOcf{
-	typedef Point3<S> VecType;
-	typedef  S   ScalarType;
-	CurvatureDirTypeOcf () {}
-	Point3<S>max_dir,min_dir;
-	S k1,k2;
+    typedef Point3<S> CurVecType;
+    typedef  S   CurScalarType;
+    CurvatureDirTypeOcf () {}
+    CurVecType max_dir,min_dir;
+    CurScalarType k1,k2;
 };
 
 
 template <class A, class TT> class CurvatureDirOcf: public TT {
 public:
   typedef A CurvatureDirType;
-  typedef typename CurvatureDirType::VecType VecType;
-  typedef typename CurvatureDirType::ScalarType ScalarType;
+  typedef typename CurvatureDirType::CurVecType CurVecType;
+  typedef typename CurvatureDirType::CurScalarType CurScalarType;
 
-  VecType &PD1()       { assert((*this).Base().CurvatureDirEnabled); return (*this).Base().CuDV[(*this).Index()].max_dir;}
-  VecType &PD2()       { assert((*this).Base().CurvatureDirEnabled); return (*this).Base().CuDV[(*this).Index()].min_dir;}
-  VecType cPD1() const { assert((*this).Base().CurvatureDirEnabled); return (*this).Base().CuDV[(*this).Index()].max_dir;}
-  VecType cPD2() const { assert((*this).Base().CurvatureDirEnabled); return (*this).Base().CuDV[(*this).Index()].min_dir;}
+  CurVecType&        PD1()       { assert((*this).Base().CurvatureDirEnabled); return (*this).Base().CuDV[(*this).Index()].max_dir;}
+  CurVecType&        PD2()       { assert((*this).Base().CurvatureDirEnabled); return (*this).Base().CuDV[(*this).Index()].min_dir;}
+  const CurVecType& cPD1() const { assert((*this).Base().CurvatureDirEnabled); return (*this).Base().CuDV[(*this).Index()].max_dir;}
+  const CurVecType& cPD2() const { assert((*this).Base().CurvatureDirEnabled); return (*this).Base().CuDV[(*this).Index()].min_dir;}
+  const CurVecType&  PD1() const { assert((*this).Base().CurvatureDirEnabled); return (*this).Base().CuDV[(*this).Index()].max_dir;}
+  const CurVecType&  PD2() const { assert((*this).Base().CurvatureDirEnabled); return (*this).Base().CuDV[(*this).Index()].min_dir;}
 
-  ScalarType &K1()       { assert((*this).Base().CurvatureDirEnabled); return (*this).Base().CuDV[(*this).Index()].k1;}
-  ScalarType &K2()       { assert((*this).Base().CurvatureDirEnabled); return (*this).Base().CuDV[(*this).Index()].k2;}
-  ScalarType cK1() const { assert((*this).Base().CurvatureDirEnabled); return (*this).Base().CuDV[(*this).Index()].k1;}
-  ScalarType cK2() const { assert((*this).Base().CurvatureDirEnabled); return (*this).Base().CuDV[(*this).Index()].k2;}
+  CurScalarType& K1()       { assert((*this).Base().CurvatureDirEnabled); return (*this).Base().CuDV[(*this).Index()].k1;}
+  CurScalarType& K2()       { assert((*this).Base().CurvatureDirEnabled); return (*this).Base().CuDV[(*this).Index()].k2;}
+  CurScalarType  K1() const { assert((*this).Base().CurvatureDirEnabled); return (*this).Base().CuDV[(*this).Index()].k1;}
+  CurScalarType  K2() const { assert((*this).Base().CurvatureDirEnabled); return (*this).Base().CuDV[(*this).Index()].k2;}
+  CurScalarType cK1() const { assert((*this).Base().CurvatureDirEnabled); return (*this).Base().CuDV[(*this).Index()].k1;}
+  CurScalarType cK2() const { assert((*this).Base().CurvatureDirEnabled); return (*this).Base().CuDV[(*this).Index()].k2;}
 
   template <class RightVertexType>
   void ImportData(const RightVertexType & rightV){
     if((*this).IsCurvatureDirEnabled() && rightV.IsCurvatureDirEnabled())
     {
-      (*this).PD1() = rightV.cPD1();
-      (*this).PD2() = rightV.cPD2();
-      (*this).K1() = rightV.cK1();
-      (*this).K2() = rightV.cK2();
+      (*this).PD1().Import(rightV.cPD1());
+      (*this).PD2().Import(rightV.cPD2());
+      (*this).K1()=rightV.cK1();
+      (*this).K2()=rightV.cK2();
     }
     TT::ImportData(rightV);
   }
@@ -513,7 +495,6 @@ public:	static void Name(std::vector<std::string> & name){name.push_back(std::st
 template <class A, class TT> class RadiusOcf: public TT {
 public:
   typedef A RadiusType;
-  typedef RadiusType ScalarType;
 
   const RadiusType &R() const { assert((*this).Base().RadiusEnabled); return (*this).Base().RadiusV[(*this).Index()];}
         RadiusType &R()       { assert((*this).Base().RadiusEnabled); return (*this).Base().RadiusV[(*this).Index()];}
@@ -541,31 +522,31 @@ template <class T> class RadiusdOcf: public RadiusOcf<double, T> {};
 
 template < class T> class InfoOcf: public T {
 public:
-	// You should never ever try to copy a vertex that has OCF stuff.
-		// use ImportData function.
-	inline InfoOcf &operator=(const InfoOcf & /*other*/) {
-		assert(0); return *this;
-	}
+    // You should never ever try to copy a vertex that has OCF stuff.
+        // use ImportData function.
+    inline InfoOcf &operator=(const InfoOcf & /*other*/) {
+        assert(0); return *this;
+    }
 
-		vector_ocf<typename T::VertexType> &Base() const { return *_ovp;}
+        vector_ocf<typename T::VertexType> &Base() const { return *_ovp;}
 
-	inline int Index() const {
-		typename  T::VertexType const *tp=static_cast<typename T::VertexType const*>(this);
-		int tt2=tp- &*(_ovp->begin());
-		return tt2;
-	}
+    inline int Index() const {
+        typename  T::VertexType const *tp=static_cast<typename T::VertexType const*>(this);
+        int tt2=tp- &*(_ovp->begin());
+        return tt2;
+    }
 public:
-	vector_ocf<typename T::VertexType> *_ovp;
+    vector_ocf<typename T::VertexType> *_ovp;
 
-	static bool HasColorOcf()   { return false; }
-	static bool HasCurvatureOcf()   { return false; }
-	static bool HasCurvatureDirOcf()   { return false; }
-	static bool HasNormalOcf()   { return false; }
-	static bool HasMarkOcf()   { return false; }
-	static bool HasQualityOcf()   { return false; }
-	static bool HasRadiusOcf()   { return false; }
-	static bool HasTexCoordOcf()   { return false; }
-	static bool HasVFAdjacencyOcf()   { return false; }
+    static bool HasColorOcf()   { return false; }
+    static bool HasCurvatureOcf()   { return false; }
+    static bool HasCurvatureDirOcf()   { return false; }
+    static bool HasNormalOcf()   { return false; }
+    static bool HasMarkOcf()   { return false; }
+    static bool HasQualityOcf()   { return false; }
+    static bool HasRadiusOcf()   { return false; }
+    static bool HasTexCoordOcf()   { return false; }
+    static bool HasVFAdjacencyOcf()   { return false; }
 };
 
 
@@ -583,45 +564,45 @@ bool VertexVectorHasVFAdjacency(const vertex::vector_ocf<VertexType> &fv)
 template < class VertexType >
 bool VertexVectorHasPerVertexRadius(const vertex::vector_ocf<VertexType> &fv)
 {
-	if(VertexType::HasRadiusOcf()) return fv.IsRadiusEnabled();
-	else return VertexType::HasRadius();
+    if(VertexType::HasRadiusOcf()) return fv.IsRadiusEnabled();
+    else return VertexType::HasRadius();
 }
 template < class VertexType >
 bool VertexVectorHasPerVertexQuality(const vertex::vector_ocf<VertexType> &fv)
 {
-	if(VertexType::HasQualityOcf()) return fv.IsQualityEnabled();
-	else return VertexType::HasQuality();
+    if(VertexType::HasQualityOcf()) return fv.IsQualityEnabled();
+    else return VertexType::HasQuality();
 }
 template < class VertexType >
 bool VertexVectorHasPerVertexNormal(const vertex::vector_ocf<VertexType> &fv)
 {
-	if(VertexType::HasNormalOcf()) return fv.IsNormalEnabled();
-	else return VertexType::HasNormal();
+    if(VertexType::HasNormalOcf()) return fv.IsNormalEnabled();
+    else return VertexType::HasNormal();
 }
 template < class VertexType >
 bool VertexVectorHasPerVertexColor(const vertex::vector_ocf<VertexType> &fv)
 {
-	if(VertexType::HasColorOcf()) return fv.IsColorEnabled();
-	else return VertexType::HasColor();
+    if(VertexType::HasColorOcf()) return fv.IsColorEnabled();
+    else return VertexType::HasColor();
 }
 template < class VertexType >
 bool VertexVectorHasPerVertexCurvature(const vertex::vector_ocf<VertexType> &fv)
 {
-	if(VertexType::HasCurvatureOcf()) return fv.IsCurvatureEnabled();
-	else return VertexType::HasCurvature();
+    if(VertexType::HasCurvatureOcf()) return fv.IsCurvatureEnabled();
+    else return VertexType::HasCurvature();
 }
 template < class VertexType >
 bool VertexVectorHasPerVertexCurvatureDir(const vertex::vector_ocf<VertexType> &fv)
 {
-	if(VertexType::HasCurvatureDirOcf()) return fv.IsCurvatureDirEnabled();
-	else return VertexType::HasCurvatureDir();
+    if(VertexType::HasCurvatureDirOcf()) return fv.IsCurvatureDirEnabled();
+    else return VertexType::HasCurvatureDir();
 }
 
 template < class VertexType >
 bool VertexVectorHasPerVertexTexCoord(const vertex::vector_ocf<VertexType> &fv)
 {
-	if(VertexType::HasTexCoordOcf()) return fv.IsTexCoordEnabled();
-	else return VertexType::HasTexCoord();
+    if(VertexType::HasTexCoordOcf()) return fv.IsTexCoordEnabled();
+    else return VertexType::HasTexCoord();
 }
 }
 }// end namespace vcg

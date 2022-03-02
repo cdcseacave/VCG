@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004                                                \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -24,8 +24,6 @@
 #ifndef __VCGLIB_UGRID
 #define __VCGLIB_UGRID
 
-#include <vector>
-#include <algorithm>
 #include <stdio.h>
 
 #include <vcg/space/box3.h>

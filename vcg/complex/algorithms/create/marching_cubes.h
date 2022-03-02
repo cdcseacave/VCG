@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004                                                \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -26,6 +26,7 @@
 #define __VCG_MARCHING_CUBES
 
 #include "mc_lookup_table.h"
+#include <array>
 
 namespace vcg
 {
@@ -63,16 +64,6 @@ namespace vcg
         {
         public:
             enum Dimension		 {X, Y, Z};
-
-#if defined(__GNUC__)
-            typedef unsigned int				size_t;
-#else
-#ifdef			_WIN64
-            typedef unsigned __int64    size_t;
-#else
-            typedef _W64 unsigned int   size_t;
-#endif
-#endif
             typedef typename vcg::tri::Allocator< TRIMESH_TYPE > AllocatorType;
             typedef typename TRIMESH_TYPE::ScalarType			ScalarType;
             typedef typename TRIMESH_TYPE::VertexType			VertexType;
@@ -675,14 +666,14 @@ namespace vcg
                 VertexPointer vp		= NULL;
                 size_t face_idx			= _mesh->face.size();
                 size_t v12_idx			= -1;
-                size_t vertices_idx[3];
+				std::array<size_t, 3> vertices_idx;
                 if (v12 != NULL) v12_idx = v12 - &_mesh->vert[0];
                 AllocatorType::AddFaces(*_mesh, (int) n);
 
                 for (int trig=0; trig<3*n; face_idx++ )
                 {
                     vp = NULL;
-                    memset(vertices_idx, -1, 3*sizeof(size_t));
+					vertices_idx.fill(-1);
                     for (int vert=0; vert<3; vert++, trig++) //ok
                     {
 

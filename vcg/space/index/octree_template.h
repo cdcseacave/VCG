@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004                                                \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -28,6 +28,8 @@
 #include <vcg/space/point3.h>
 #include <vcg/space/box3.h>
 #include <vector>
+#include <array>
+#include <assert.h>
 
 
 namespace vcg
@@ -81,7 +83,9 @@ protected:
 			parent = NULL;
 			level  = -1;
 		}
-
+    
+    virtual ~Node() {}
+    
 		// Constructor: create a new Node
 		Node(NodePointer parent, int level)
 		{
@@ -106,10 +110,10 @@ protected:
 	*/
 	struct InnerNode : public Node
 	{
-		InnerNode() : Node() {};
+		InnerNode() : Node() {}
 		InnerNode(NodePointer parent, int level) : Node(parent, level)
 		{
-			memset(&sons[0], 0, 8*sizeof(Node*));
+			sons.fill(nullptr);
 		}
 
 		inline NodePointer &Son(int sonIndex)
@@ -123,7 +127,7 @@ protected:
 			return false;
 		}
 
-		NodePointer sons[8];
+		std::array<NodePointer, 8> sons;
 	};
 
 	/*
@@ -131,7 +135,7 @@ protected:
 	*/
 	struct Leaf : public Node
 	{
-		Leaf() : Node() {};
+		Leaf() : Node() {}
 		Leaf(NodePointer parent, int level) : Node(parent, level) {}
 
 		inline NodePointer &Son(int /*sonIndex*/)
@@ -596,7 +600,8 @@ public:
 		assert( boundingBox.min.Y()<=p.Y() && p.Y()<=boundingBox.max.Y() );
 		assert( boundingBox.min.Z()<=p.Z() && p.Z()<=boundingBox.max.Z() );
 
-		memset(route, NULL, maximumDepth*sizeof(NodePointer));
+		for (unsigned int i = 0; i < maximumDepth; ++i)
+			route[i] = nullptr;
 
 		CenterType path				 = CenterType::Construct(Interize(p));
 		int shift							 = maximumDepth-1;

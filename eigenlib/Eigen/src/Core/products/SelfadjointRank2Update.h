@@ -5,7 +5,7 @@
 //
 // This Source Code Form is subject to the terms of the Mozilla
 // Public License v. 2.0. If a copy of the MPL was not distributed
-// with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// with this file, You can obtain one at the mozilla.org home page
 
 #ifndef EIGEN_SELFADJOINTRANK2UPTADE_H
 #define EIGEN_SELFADJOINTRANK2UPTADE_H
@@ -79,11 +79,11 @@ SelfAdjointView<MatrixType,UpLo>& SelfAdjointView<MatrixType,UpLo>
   if (IsRowMajor)
     actualAlpha = numext::conj(actualAlpha);
 
-  internal::selfadjoint_rank2_update_selector<Scalar, Index,
-    typename internal::remove_all<typename internal::conj_expr_if<IsRowMajor ^ UBlasTraits::NeedToConjugate,_ActualUType>::type>::type,
-    typename internal::remove_all<typename internal::conj_expr_if<IsRowMajor ^ VBlasTraits::NeedToConjugate,_ActualVType>::type>::type,
+  typedef typename internal::remove_all<typename internal::conj_expr_if<IsRowMajor ^ UBlasTraits::NeedToConjugate,_ActualUType>::type>::type UType;
+  typedef typename internal::remove_all<typename internal::conj_expr_if<IsRowMajor ^ VBlasTraits::NeedToConjugate,_ActualVType>::type>::type VType;
+  internal::selfadjoint_rank2_update_selector<Scalar, Index, UType, VType,
     (IsRowMajor ? int(UpLo==Upper ? Lower : Upper) : UpLo)>
-    ::run(_expression().const_cast_derived().data(),_expression().outerStride(),actualU,actualV,actualAlpha);
+    ::run(_expression().const_cast_derived().data(),_expression().outerStride(),UType(actualU),VType(actualV),actualAlpha);
 
   return *this;
 }

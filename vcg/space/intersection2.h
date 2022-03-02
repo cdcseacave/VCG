@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004                                                \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -40,7 +40,7 @@ added circle-line intersection
 #include <vcg/space/point2.h>
 #include <vcg/space/triangle2.h>
 #include <vcg/space/box2.h>
-
+#include <vector>
 
 
 
@@ -137,6 +137,34 @@ namespace vcg {
 		return ((d0<length)&&(d1<length));
 	}
 
+    /// interseciton between point and triangle
+    template<class SCALAR_TYPE>
+    inline bool RayBoxIntersection(const vcg::Ray2<SCALAR_TYPE> & r,
+                                   const vcg::Box2<SCALAR_TYPE> &bbox,
+                                    Point2<SCALAR_TYPE> &p_inters)
+    {
+        ///first create the 4 segments
+        vcg::Segment2<SCALAR_TYPE> S[4];
+        for (int i=0;i<4;i++)
+            S[i]=vcg::Segment2<SCALAR_TYPE>(bbox.P(i),bbox.P((i+1)%4));
+
+        SCALAR_TYPE mind=std::numeric_limits<SCALAR_TYPE>::max();
+        bool found=false;
+        for (int i=0;i<4;i++)
+        {
+             Point2<SCALAR_TYPE> p_inters_test;
+            if (!RaySegmentIntersection(r,S[i],p_inters_test))continue;
+            SCALAR_TYPE Norm=(p_inters_test-r.Origin()).Norm();
+            if (Norm<mind)
+            {
+                mind=Norm;
+                p_inters=p_inters_test;
+                found=true;
+            }
+        }
+        return found;
+    }
+
 	/// interseciton between point and triangle
 	template<class SCALAR_TYPE>
 	inline bool LineSegmentIntersection(const vcg::Line2<SCALAR_TYPE> & line,
@@ -159,39 +187,38 @@ namespace vcg {
 		return ((d0<length)&&(d1<length));
 	}
 
-	/// interseciton between point and triangle
+	/// interseciton between two segments
 	template<class SCALAR_TYPE>
 	inline bool SegmentSegmentIntersection(const vcg::Segment2<SCALAR_TYPE> &seg0,
 		const vcg::Segment2<SCALAR_TYPE> &seg1,
 		Point2<SCALAR_TYPE> &p_inters)
 	{
-		vcg::Line2<SCALAR_TYPE> l0,l1;
+		const SCALAR_TYPE Eps= SCALAR_TYPE(1e-8);
+		SCALAR_TYPE lambda0,lambda1;
+        const Point2<SCALAR_TYPE> & p0 = seg0.P0();
+        const Point2<SCALAR_TYPE> & p1 = seg0.P1();
+        const Point2<SCALAR_TYPE> & p2 = seg1.P0();
+        const Point2<SCALAR_TYPE> & p3 = seg1.P1();
 
-		l0.SetOrigin(seg0.P0());
-		vcg::Point2<SCALAR_TYPE> dir0=seg0.P1()-seg0.P0();
-		dir0.Normalize();
-		l0.SetDirection(dir0);
+		SCALAR_TYPE a = (p1-p0)[0];
+		SCALAR_TYPE b = (p2-p3)[0];
+		SCALAR_TYPE c = (p1-p0)[1];
+		SCALAR_TYPE d = (p2-p3)[1];
 
-		l1.SetOrigin(seg1.P0());
-		vcg::Point2<SCALAR_TYPE> dir1=seg1.P1()-seg1.P0();
-		dir1.Normalize();
-		l1.SetDirection(dir1);
-		LineLineIntersection(l0,l1,p_inters);
-		SCALAR_TYPE len0=seg0.Length();
-		SCALAR_TYPE len1=seg1.Length();
-		SCALAR_TYPE d0=(seg0.P0()-p_inters).Norm();
-		SCALAR_TYPE d1=(seg1.P0()-p_inters).Norm();
+		SCALAR_TYPE e = (p2-p0)[0];
+        SCALAR_TYPE f = (p2-p0)[1];
 
-		if ((d0>len0)||(d1>len1))
+		SCALAR_TYPE det = a*d-b*c;
+
+		lambda0 = (d*e-b*f)/det;
+		lambda1 = (-c*e+a*f)/det;
+        if (fabs(det)<Eps)
+			return false;// they are parallell
+		
+		if (!(lambda0 >= 0.0 && lambda0 <= 1.0 && lambda1 >= 0.0 && lambda1 <= 1.0))
 			return false;
-
-		vcg::Point2<SCALAR_TYPE> dir2=p_inters-seg0.P0();
-		vcg::Point2<SCALAR_TYPE> dir3=p_inters-seg1.P0();
-		if (((dir2*dir0)<0)||((dir3*dir1)<0))
-			return false;
-
+        p_inters = p0*(1-lambda0)+p1*lambda0;
 		return true;
-
 	}
 	/// interseciton between point and triangle
 	template<class SCALAR_TYPE>
@@ -211,7 +238,7 @@ namespace vcg {
 
 		///then text convex
 		if (!Convex(p0,p1,p2))
-			std::swap<Point2<SCALAR_TYPE> >(p1,p2);
+			std::swap(p1,p2);
 		return((Convex(p,p0,p1))&&(Convex(p,p1,p2))&&(Convex(p,p2,p0)));
 		//return((Convex(p,p0,p1))&&(Convex(p,p1,p2))&&(Convex(p,p2,p0)));
 	}
@@ -266,8 +293,7 @@ namespace vcg {
 			BB.Add(polygon[i].P1());
 		}
 		if (!BB.IsIn(p))return false;
-		ScalarType size=BB.Diag();
-		///take 4 directions
+        //take 4 directions
 		int inside_test=0;
 		for (int dir=0;dir<4;dir++)
 		{
@@ -333,6 +359,28 @@ namespace vcg {
 			return true;
 		}
 	}
+
+
+    // Ray-Segment Functor
+    class RaySegmentIntersectionFunctor {
+    public:
+
+        template <class SEGMENTTYPE, class SCALARTYPE>
+        inline bool operator () (const SEGMENTTYPE & S,
+                                 const Ray2<SCALARTYPE> & ray,
+                                 SCALARTYPE & t)
+        {
+            typedef SCALARTYPE ScalarType;
+            typedef vcg::Point2<ScalarType> CoordType;
+
+            CoordType inters_test;
+            bool bret = RaySegmentIntersection(ray,S, inters_test);
+            if (bret)
+                t=(inters_test-ray.Origin()).Norm();
+            return (bret);
+        }
+    };
+
 	/*@}*/
 } // end namespace
 #endif

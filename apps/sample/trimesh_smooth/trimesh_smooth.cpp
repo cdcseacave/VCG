@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004-2012                                           \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -30,13 +30,10 @@ This file contain a minimal example of the library
 */
 
 #include<vcg/complex/complex.h>
-#include <vcg/complex/algorithms/update/topology.h>
-#include <vcg/complex/algorithms/update/normal.h>
 
 #include<vcg/complex/algorithms/clean.h>
 #include<vcg/complex/algorithms/smooth.h>
 
-// input output
 #include <wrap/io_trimesh/import.h>
 #include <wrap/io_trimesh/export_ply.h>
 
@@ -82,7 +79,7 @@ int main(int argc,char ** argv)
   for(int i=0;i<Step;++i)
   {
     tri::UpdateNormal<MyMesh>::PerFaceNormalized(m);
-    tri::Smooth<MyMesh>::VertexCoordPasoDobleFast(m,atoi(argv[3]),atof(argv[4]),atoi(argv[5]));
+    tri::Smooth<MyMesh>::VertexCoordPasoDoble(m,atoi(argv[3]),atof(argv[4]),atoi(argv[5]));
   }
 
   //LaplacianSmooth(m,atoi(argv[2]));

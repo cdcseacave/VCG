@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004                                                \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -28,7 +28,7 @@
 
 #include <wrap/callback.h>
 #include <wrap/io_trimesh/io_mask.h>
-#include "io_material.h"
+#include <wrap/io_trimesh/io_material.h>
 #include <iostream>
 #include <fstream>
 #include <map>
@@ -42,24 +42,30 @@ class ExporterOBJ
 {
 public:
   typedef typename SaveMeshType::FaceIterator FaceIterator;
+  typedef typename SaveMeshType::ConstFaceIterator ConstFaceIterator;
   typedef typename SaveMeshType::EdgeIterator EdgeIterator;
+  typedef typename SaveMeshType::ConstEdgeIterator ConstEdgeIterator;
   typedef typename SaveMeshType::VertexIterator VertexIterator;
   typedef typename SaveMeshType::VertexType VertexType;
   typedef typename SaveMeshType::ScalarType ScalarType;
   typedef typename SaveMeshType::CoordType CoordType;
+  typedef typename SaveMeshType::FaceType::TexCoordType TexCoordType;
+
   /*
             enum of all the types of error
         */
   enum SaveError
   {
-    E_NOERROR,					// 0
-    E_CANTOPENFILE,				// 1
-    E_CANTCLOSEFILE,			// 2
-    E_UNESPECTEDEOF,			// 3
-    E_ABORTED,					// 4
-    E_NOTDEFINITION,			// 5
-    E_NOTVEXTEXVALID,			// 6
-    E_NOTFACESVALID				// 7
+    E_NOERROR,            // 0
+    E_CANTOPENFILE,       // 1
+    E_CANTCLOSEFILE,      // 2
+    E_UNESPECTEDEOF,      // 3
+    E_ABORTED,            // 4
+    E_NOTDEFINITION,      // 5
+    E_NO_VERTICES,        // 6
+    E_NOTFACESVALID,      // 7
+    E_NO_VALID_MATERIAL,  // 8
+	E_STREAMERROR         // 9
   };
 
   /*
@@ -69,17 +75,19 @@ public:
   {
     static const char* obj_error_msg[] =
     {
-      "No errors",							// 0
-      "Can't open file",						// 1
-      "can't close file",						// 2
-      "Premature End of file",				// 3
-      "File saving aborted",					// 4
-      "Function not defined",					// 5
-      "Vertices not valid",					// 6
-      "Faces not valid"						// 7
+      "No errors",  // 0
+      "Can't open file",  // 1
+      "can't close file",  // 2
+      "Premature End of file",  // 3
+      "File saving aborted",  // 4
+      "Function not defined",  // 5
+      "Vertices not valid",  // 6
+      "Faces not valid",  // 7
+      "The mesh has not a attribute containing the vector of materials",  // 8
+	  "Output Stream Error" //9
     };
 
-    if(error>7 || error<0) return "Unknown error";
+    if(error>9 || error<0) return "Unknown error";
     else return obj_error_msg[error];
   };
 
@@ -105,13 +113,20 @@ public:
 
     return capability;
   }
-
-  /*
-            function which saves in OBJ file format
-        */
+  
   static int Save(SaveMeshType &m, const char * filename, int mask, CallBackPos *cb=0)
   {
-    // texture coord and normal: cannot be saved BOTH per vertex and per wedge
+    return Save(m,filename,mask,false,cb);
+  }
+  
+  /** 
+   * main function to export a mesh in OBJ file format
+   * 
+   * if you enable the useMaterialAttribute flag, the exporter will assume that the mesh has a consistent per mesh attribute and a per face attribute containing the index of the material
+   */
+  static int Save(SaveMeshType &m, const char * filename, int mask, bool useMaterialAttribute ,CallBackPos *cb=0)
+  {
+    // texture coord and color: in obj we cannot save BOTH per vertex and per wedge information. We default on wedge
     if (mask & vcg::tri::io::Mask::IOM_WEDGTEXCOORD &&
         mask & vcg::tri::io::Mask::IOM_VERTTEXCOORD ) {
       mask &= ~vcg::tri::io::Mask::IOM_VERTTEXCOORD;
@@ -120,38 +135,40 @@ public:
         mask & vcg::tri::io::Mask::IOM_VERTCOLOR ) {
       mask &= ~vcg::tri::io::Mask::IOM_VERTCOLOR;
     }
-    if(m.vn == 0)	return E_NOTVEXTEXVALID;
-    // Commented out this control. You should be allowed to save a point cloud.
-    // if(m.fn == 0)	return E_NOTFACESVALID;
+    if(m.vn == 0)	return E_NO_VERTICES;
+    
+    typename SaveMeshType::template PerMeshAttributeHandle<std::vector<Material> > materialVecHandle =
+        vcg::tri::Allocator<SaveMeshType>::template FindPerMeshAttribute<std::vector<Material> >(m, "materialVector");
+    typename SaveMeshType::template PerFaceAttributeHandle<int> materialIndexHandle =
+            vcg::tri::Allocator<SaveMeshType>::template FindPerFaceAttribute<int>(m, "materialIndex");
+    
+    if(useMaterialAttribute && (!Allocator<SaveMeshType>::IsValidHandle(m,materialVecHandle)) && 
+       (!Allocator<SaveMeshType>::IsValidHandle(m,materialIndexHandle)) ) 
+        return E_NO_VALID_MATERIAL;
 
-    int current = 0;
-    int totalPrimitives = m.vn+m.fn;
-
-    std::vector<Material> materialVec;
-
-    std::string fn(filename);
-    int LastSlash=fn.size()-1;
-    while(LastSlash>=0 && fn[LastSlash]!='/')
-      --LastSlash;
-
-    FILE *fp;
-    fp = fopen(filename,"w");
+    FILE *fp = fopen(filename,"w");
     if(fp == NULL) return E_CANTOPENFILE;
-
+    std::string shortFilename(filename);
+    int LastSlash=shortFilename.size()-1;
+    while(LastSlash>=0 && shortFilename[LastSlash]!='/')
+      --LastSlash;
+    shortFilename = shortFilename.substr(LastSlash+1);
+    
     fprintf(fp,"####\n#\n# OBJ File Generated by Meshlab\n#\n####\n");
-    fprintf(fp,"# Object %s\n#\n# Vertices: %d\n# Faces: %d\n#\n####\n",fn.substr(LastSlash+1).c_str(),m.vn,m.fn);
-
+    fprintf(fp,"# Object %s\n#\n# Vertices: %d\n# Faces: %d\n#\n####\n",shortFilename.c_str(),m.vn,m.fn);
+    
     //library materialVec
-    if( (mask & vcg::tri::io::Mask::IOM_FACECOLOR)  || (mask & Mask::IOM_WEDGTEXCOORD) )
-      fprintf(fp,"mtllib ./%s.mtl\n\n",fn.substr(LastSlash+1).c_str());
+    if( (mask & vcg::tri::io::Mask::IOM_FACECOLOR)  || (mask & Mask::IOM_WEDGTEXCOORD) || (mask & Mask::IOM_VERTTEXCOORD) )
+      fprintf(fp,"mtllib ./%s.mtl\n\n",shortFilename.c_str());
 
-    //vertexs + normal
-    VertexIterator vi;
     std::map<CoordType,int> NormalVertex;
     std::vector<int> VertexId(m.vert.size());
     int numvert = 0;
     int curNormalIndex = 1;
-    for(vi=m.vert.begin(); vi!=m.vert.end(); ++vi) if( !(*vi).IsD() )
+    int current = 0;
+    const int totalPrimitives = m.vn+m.fn;    
+    /*********************************** VERTICES *********************************/
+    for(auto vi=m.vert.begin(); vi!=m.vert.end(); ++vi) if( !(*vi).IsD() )
     {
       VertexId[vi-m.vert.begin()]=numvert;
       //saves normal per vertex
@@ -166,17 +183,14 @@ public:
       if (mask & Mask::IOM_VERTNORMAL ) {
         fprintf(fp,"vn %f %f %f\n",(*vi).N()[0],(*vi).N()[1],(*vi).N()[2]);
       }
+      
       if (mask & Mask::IOM_VERTTEXCOORD ) {
         fprintf(fp,"vt %f %f\n",(*vi).T().P()[0],(*vi).T().P()[1]);
       }
-      //if (mask & Mask::IOM_VERTCOLOR ) {
-      //  fprintf(fp,"vc %f %f %f\n",(*vi).T().P()[0],(*vi).T().P()[1]);
-      //}
-
-      //saves vertex
 
       fprintf(fp,"v %f %f %f",(*vi).P()[0],(*vi).P()[1],(*vi).P()[2]);
-      if(mask & Mask::IOM_VERTCOLOR)
+      
+      if(mask & Mask::IOM_VERTCOLOR) // the socially accepted extension to the obj format. 
         fprintf(fp," %f %f %f",double((*vi).C()[0])/255.,double((*vi).C()[1])/255.,double((*vi).C()[2])/255.);
       fprintf(fp,"\n");
 
@@ -191,33 +205,26 @@ public:
       numvert++;
     }
     assert(numvert == m.vn);
-
     fprintf(fp,"# %d vertices, %d vertices normals\n\n",m.vn,int(NormalVertex.size()));
 
+    /********************* FACES ************************/      
     //faces + texture coords
-    std::map<vcg::TexCoord2<ScalarType>,int> CoordIndexTexture;
-    unsigned int material_num = 0;
-    int mem_index = 0; //var temporany
+    std::map<TexCoordType,int> CoordIndexTexture;
     int curTexCoordIndex = 1;
-    for(FaceIterator fi=m.face.begin(); fi!=m.face.end(); ++fi) if( !(*fi).IsD() )
+    int curMatIndex = -1;
+    std::vector<Material> materialVec; //used if we do not have material attributes 
+    
+    for(ConstFaceIterator fi=m.face.begin(); fi!=m.face.end(); ++fi) if( !(*fi).IsD() )
     {
-      if((mask & Mask::IOM_FACECOLOR) || (mask & Mask::IOM_WEDGTEXCOORD) )
+      if((mask & Mask::IOM_FACECOLOR) || (mask & Mask::IOM_WEDGTEXCOORD) || (mask & Mask::IOM_VERTTEXCOORD))
       {
-        int index = Materials<SaveMeshType>::CreateNewMaterial(m,materialVec,material_num,fi);
-
-        if(index == (int)materialVec.size())//inserts a new element material
-        {
-          material_num++;
-          fprintf(fp,"\nusemtl material_%d\n",materialVec[index-1].index);
-          mem_index = index-1;
-        }
-        else
-        {
-          if(index != mem_index)//inserts old name elemente material
-          {
-            fprintf(fp,"\nusemtl material_%d\n",materialVec[index].index);
-            mem_index=index;
-          }
+        int index=-1;
+        if(useMaterialAttribute) index = materialIndexHandle[fi];
+        else                     index = Materials<SaveMeshType>::CreateNewMaterial(m,materialVec,*fi);
+                  
+        if(index != curMatIndex) {
+          fprintf(fp,"\nusemtl material_%d\n", index);
+          curMatIndex = index;
         }
       }
 
@@ -231,7 +238,6 @@ public:
               curTexCoordIndex++; //ncreases the value number to be associated to the Texture
             }
         }
-
 
       fprintf(fp,"f ");
       for(int k=0;k<(*fi).VN();k++)
@@ -263,9 +269,9 @@ public:
         { fclose(fp); return E_ABORTED;}
       }
 
-    }//for faces
+    } // end for faces
 
-    for(EdgeIterator ei=m.edge.begin(); ei!=m.edge.end(); ++ei) if( !(*ei).IsD() )
+    for(ConstEdgeIterator ei=m.edge.begin(); ei!=m.edge.end(); ++ei) if( !(*ei).IsD() )
     {
       fprintf(fp,"l %i %i\n",
               VertexId[tri::Index(m, (*ei).V(0))] + 1,
@@ -275,23 +281,29 @@ public:
     fprintf(fp,"# %d faces, %d coords texture\n\n",m.fn,int(CoordIndexTexture.size()));
 
     fprintf(fp,"# End of File\n");
-    fclose(fp);
 
     int errCode = E_NOERROR;
-    if((mask & Mask::IOM_WEDGTEXCOORD) || (mask & Mask::IOM_FACECOLOR) )
-      errCode = WriteMaterials(materialVec, filename,cb);//write material
+    if((mask & Mask::IOM_WEDGTEXCOORD) || (mask & Mask::IOM_FACECOLOR) || (mask & Mask::IOM_VERTTEXCOORD) )
+    {
+      if(useMaterialAttribute) errCode = WriteMaterials(materialVecHandle(), filename,cb);
+      else                     errCode = WriteMaterials(materialVec, filename,cb);
+    }
 
-    if(errCode!= E_NOERROR)
-      return errCode;
-    return E_NOERROR;
+	int result = E_NOERROR;
+	if (errCode != E_NOERROR)
+		result = errCode;
+	else if (ferror(fp))
+		result = E_STREAMERROR;
+	fclose(fp);
+	return result;
   }
 
    /*
             returns index of the texture coord
         */
-  inline static int GetIndexVertexTexture(typename std::map<TexCoord2<ScalarType>,int> &mapTexToInt, const vcg::TexCoord2<ScalarType> &wt)
+  inline static int GetIndexVertexTexture(typename std::map<TexCoordType,int> &mapTexToInt, const TexCoordType &wt)
   {
-    typename std::map<vcg::TexCoord2<ScalarType>,int>::iterator iter= mapTexToInt.find(wt);
+    typename std::map<TexCoordType,int>::iterator iter= mapTexToInt.find(wt);
     if(iter != mapTexToInt.end()) return (*iter).second;
     else 		return -1;
     // Old wrong version.
@@ -302,7 +314,7 @@ public:
   /*
             returns index of the vertex normal
         */
-  inline static int GetIndexVertexNormal(SaveMeshType &/*m*/, std::map<CoordType,int> &mapNormToInt, const CoordType &norm )
+  inline static int GetIndexVertexNormal(const SaveMeshType &/*m*/, std::map<CoordType,int> &mapNormToInt, const CoordType &norm )
   {
     typename std::map<CoordType,int>::iterator iter= mapNormToInt.find(norm);
     if(iter != mapNormToInt.end()) return (*iter).second;
@@ -335,8 +347,9 @@ public:
             adds a new index to the coordinate of Texture if it is the first time
             which is otherwise met not execute anything
         */
-  inline static bool AddNewTextureCoord(std::map<typename vcg::TexCoord2<ScalarType>,int> &m,
-                                        const typename vcg::TexCoord2<ScalarType> &wt,int value)
+  template <class TexScalarType>
+  inline static bool AddNewTextureCoord(std::map<typename vcg::TexCoord2<TexScalarType>,int> &m,
+                                        const typename vcg::TexCoord2<TexScalarType> &wt,int value)
   {
     int index = m[wt];
     if(index==0){m[wt]=value;return true;}
@@ -347,7 +360,7 @@ public:
             adds a new index to the normal per vertex if it is the first time
             which is otherwise met does not execute anything
         */
-  inline static bool AddNewNormalVertex(typename std::map<CoordType,int> &m, CoordType &n ,int value)
+  inline static bool AddNewNormalVertex(typename std::map<CoordType,int> &m, const CoordType &n ,int value)
   {
     int index = m[n];
     if(index==0){m[n]=value;return true;}
@@ -379,7 +392,7 @@ public:
         else
         { /* fclose(fp); return E_ABORTED; */ }
 
-        fprintf(fp,"newmtl material_%d\n",materialVec[i].index);
+        fprintf(fp,"newmtl material_%d\n",i);
         fprintf(fp,"Ka %f %f %f\n",materialVec[i].Ka[0],materialVec[i].Ka[1],materialVec[i].Ka[2]);
         fprintf(fp,"Kd %f %f %f\n",materialVec[i].Kd[0],materialVec[i].Kd[1],materialVec[i].Kd[2]);
         fprintf(fp,"Ks %f %f %f\n",materialVec[i].Ks[0],materialVec[i].Ks[1],materialVec[i].Ks[2]);

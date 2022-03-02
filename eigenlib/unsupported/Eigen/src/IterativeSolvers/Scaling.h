@@ -5,10 +5,13 @@
 //
 // This Source Code Form is subject to the terms of the Mozilla
 // Public License v. 2.0. If a copy of the MPL was not distributed
-// with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// with this file, You can obtain one at the mozilla.org home page
 
 #ifndef EIGEN_ITERSCALING_H
 #define EIGEN_ITERSCALING_H
+
+namespace Eigen {
+
 /**
   * \ingroup IterativeSolvers_Module
   * \brief iterative scaling algorithm to equilibrate rows and column norms in matrices
@@ -41,8 +44,6 @@
   * 
   * \sa \ref IncompleteLUT 
   */
-namespace Eigen {
-using std::abs; 
 template<typename _MatrixType>
 class IterScaling
 {
@@ -71,6 +72,7 @@ class IterScaling
      */
     void compute (const MatrixType& mat)
     {
+      using std::abs;
       int m = mat.rows(); 
       int n = mat.cols();
       eigen_assert((m>0 && m == n) && "Please give a non - empty matrix");

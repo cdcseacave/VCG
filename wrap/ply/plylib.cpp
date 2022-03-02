@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004                                                \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -143,8 +143,12 @@ static int TypeSize[] = {
 
 size_t PropDescriptor::memtypesize() const {return TypeSize[memtype1];}
 size_t PropDescriptor::stotypesize() const {return TypeSize[stotype1];}
+size_t PropDescriptor::memtype2size() const {return TypeSize[memtype2];}
+size_t PropDescriptor::stotype2size() const {return TypeSize[stotype2];}
 const char *PropDescriptor::memtypename() const {return PlyFile::typenames[memtype1];}
 const char *PropDescriptor::stotypename() const {return PlyFile::typenames[stotype1];}
+const char *PropDescriptor::memtype2name() const {return PlyFile::typenames[memtype2];}
+const char *PropDescriptor::stotype2name() const {return PlyFile::typenames[stotype2];}
 
 static char CrossType[9][9]=
 {
@@ -1052,6 +1056,24 @@ int PlyFile::OpenRead( const char * filename )
 		error = E_UNESPECTEDEOF;
 		goto error;
 	}
+	
+	while (!strcmp(token, COMMENT))
+	{
+		comments.push_back(string(token + strlen(token) + 1));
+		if (pb_fgets(buf, MAXB - 1, gzfp) == 0)
+		{
+			error = E_UNESPECTEDEOF;
+			goto error;
+		}
+		header.append(buf);
+
+#ifdef __MINGW32__
+		token = strtok(buf, SEP);
+#else
+		token = strtok_r(buf, SEP, &tokenPtr);
+#endif
+	}
+
 	if( strcmp(token,FORMAT) )
 	{
 		error = E_NOFORMAT;
@@ -3673,6 +3695,6 @@ void interpret_texture_name(const char*a, const char*fn, char*output){
 		output[io++]=a[ia++]; 
 	};
 	output[io]=0;
-};
+}
 } 
 }

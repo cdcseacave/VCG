@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004                                                \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -66,7 +66,7 @@ public:
 enum {
 	IOM_NONE         = 0x00000,
 
-  IOM_VERTCOORD    = 0x00001,
+	IOM_VERTCOORD    = 0x00001,
 	IOM_VERTFLAGS    = 0x00002,
 	IOM_VERTCOLOR    = 0x00004,
 	IOM_VERTQUALITY  = 0x00008,

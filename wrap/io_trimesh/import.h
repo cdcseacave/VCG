@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004                                                \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -93,16 +93,17 @@ return lastType;
 }
 
 public:
+enum ImporterError {
+  E_NOERROR =0 // No error =0 is the standard for ALL the imported files.
+};
 // simple aux function that returns true if a given file has a given extesnion
-static bool FileExtension(std::string filename,  std::string extension)
+static bool FileExtension(std::string filename, std::string extension)
 {
-  std::locale loc1 ;
-  std::use_facet<std::ctype<char> > ( loc1 ).tolower(&*filename.begin(),&*filename.rbegin());
-  std::use_facet<std::ctype<char> > ( loc1 ).tolower(&*extension.begin(),&*extension.rbegin());
+  std::transform(filename.begin(), filename.end(), filename.begin(), ::tolower);
+  std::transform(extension.begin(), extension.end(), extension.begin(), ::tolower);
   std::string end=filename.substr(filename.length()-extension.length(),extension.length());
   return end==extension;
 }
-
 // Open Mesh, returns 0 on success.
 static int Open(OpenMeshType &m, const char *filename, CallBackPos *cb=0)
 {
@@ -114,7 +115,12 @@ static int Open(OpenMeshType &m, const char *filename, CallBackPos *cb=0)
 static int Open(OpenMeshType &m, const char *filename, int &loadmask, CallBackPos *cb=0)
 {
 	int err;
-	if(FileExtension(filename,"ply"))
+	if (strlen(filename) < 3)
+	{
+		err = -1;
+		LastType()=KT_UNKNOWN;
+	}
+	else if(FileExtension(filename,"ply"))
 	{
 		err = ImporterPLY<OpenMeshType>::Open(m, filename, loadmask, cb);
 		LastType()=KT_PLY;
@@ -139,7 +145,7 @@ static int Open(OpenMeshType &m, const char *filename, int &loadmask, CallBackPo
         err = ImporterVMI<OpenMeshType>::Open(m, filename, loadmask, cb);
         LastType()=KT_VMI;
     }
-  else {
+	else {
 		err=1;
 		LastType()=KT_UNKNOWN;
 	}
@@ -151,7 +157,7 @@ static bool ErrorCritical(int error)
 {
   switch(LastType())
   {
-    case KT_PLY : return (error>0); break;
+    case KT_PLY : return ImporterPLY<OpenMeshType>::ErrorCritical(error); break;
     case KT_STL : return (error>0); break;
     case KT_OFF : return (error>0); break;
     case KT_OBJ : return ImporterOBJ<OpenMeshType>::ErrorCritical(error); break;

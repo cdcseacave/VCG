@@ -5,7 +5,7 @@
 //
 // This Source Code Form is subject to the terms of the Mozilla
 // Public License v. 2.0. If a copy of the MPL was not distributed
-// with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// with this file, You can obtain one at the mozilla.org home page
 
 /* This file is a modified version of heap_relax_snode.c file in SuperLU
  * -- SuperLU routine (version 3.0) --
@@ -43,15 +43,15 @@ namespace internal {
  * \param descendants Number of descendants of each node in the etree
  * \param relax_end last column in a supernode
  */
-template <typename Scalar, typename Index>
-void SparseLUImpl<Scalar,Index>::relax_snode (const Index n, IndexVector& et, const Index relax_columns, IndexVector& descendants, IndexVector& relax_end)
+template <typename Scalar, typename StorageIndex>
+void SparseLUImpl<Scalar,StorageIndex>::relax_snode (const Index n, IndexVector& et, const Index relax_columns, IndexVector& descendants, IndexVector& relax_end)
 {
   
   // compute the number of descendants of each node in the etree
-  Index j, parent; 
+  Index parent; 
   relax_end.setConstant(emptyIdxLU);
   descendants.setZero();
-  for (j = 0; j < n; j++) 
+  for (Index j = 0; j < n; j++) 
   {
     parent = et(j);
     if (parent != n) // not the dummy root
@@ -59,7 +59,7 @@ void SparseLUImpl<Scalar,Index>::relax_snode (const Index n, IndexVector& et, co
   }
   // Identify the relaxed supernodes by postorder traversal of the etree
   Index snode_start; // beginning of a snode 
-  for (j = 0; j < n; )
+  for (Index j = 0; j < n; )
   {
     parent = et(j);
     snode_start = j; 
@@ -69,7 +69,7 @@ void SparseLUImpl<Scalar,Index>::relax_snode (const Index n, IndexVector& et, co
       parent = et(j);
     }
     // Found a supernode in postordered etree, j is the last column 
-    relax_end(snode_start) = j; // Record last column
+    relax_end(snode_start) = StorageIndex(j); // Record last column
     j++;
     // Search for a new leaf
     while (descendants(j) != 0 && j < n) j++;

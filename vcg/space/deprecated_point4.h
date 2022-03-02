@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004                                                \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -97,10 +97,8 @@ public:
 	{
 		_v[0] = p[0]; _v[1]= p[1]; _v[2] = p[2]; _v[3]= p[3];
 	}
-	inline Point4 ( const Point4 & p )
-	{
-		_v[0]= p._v[0]; _v[1]= p._v[1]; _v[2]= p._v[2]; _v[3]= p._v[3];
-	}
+	inline Point4 ( const Point4 & p ) = default;
+
 	inline void SetZero()
 	{
 		_v[0] = _v[1] = _v[2] = _v[3]= 0;
@@ -121,11 +119,37 @@ public:
 		_v[2] = T(b[2]);
 		_v[3] = T(b[3]);
 	}
+	template <class EigenVector>
+	inline void ToEigenVector( EigenVector & b ) const
+	{
+		b[0]=_v[0];
+		b[1]=_v[1];
+		b[2]=_v[2];
+		b[3]=_v[3];
+	}
+	template <class EigenVector>
+	inline EigenVector ToEigenVector(void) const
+	{
+		assert(EigenVector::RowsAtCompileTime == 4);
+		EigenVector b;
+		b << _v[0], _v[1], _v[2], _v[3];
+		return b;
+	}
 	/// constructor that imports from different Point4 types
   template <class Q>
   static inline Point4 Construct( const Point4<Q> & b )
   {
     return Point4(T(b[0]),T(b[1]),T(b[2]),T(b[3]));
+  }
+
+  static inline Point4 Zero(void)
+  {
+    return Point4(0,0,0,0);
+  }
+
+  static inline Point4 One(void)
+  {
+    return Point4(1,1,1,1);
   }
 
 //@}
@@ -250,21 +274,44 @@ public:
         return _v[0]*_v[0] + _v[1]*_v[1] + _v[2]*_v[2] + _v[3]*_v[3];
     }
     /// Euclidian normalization
-  inline Point4 & Normalize()
+    inline Point4 & Normalize()
     {
         T n = sqrt(_v[0]*_v[0] + _v[1]*_v[1] + _v[2]*_v[2] + _v[3]*_v[3] );
         if(n>0.0) {	_v[0] /= n;	_v[1] /= n;	_v[2] /= n; _v[3] /= n; }
         return *this;
     }
-    /// Homogeneous normalization (division by W)
-    inline Point4 & HomoNormalize(){
-        if (_v[3]!=0.0) {	_v[0] /= _v[3];	_v[1] /= _v[3];	_v[2] /= _v[3]; _v[3]=1.0; }
-        return *this;
-    };
 
-//@}
+	inline void normalize(void)
+	{
+		this->Normalize();
+	}
 
-//@{
+	inline Point4 normalized(void) const
+	{
+		Point4<ScalarType> p = *this;
+		p.normalize();
+		return p;
+	}
+
+	/// Homogeneous normalization (division by W)
+	inline Point4 & HomoNormalize()
+	{
+		if (_v[3]!=0.0) {	_v[0] /= _v[3];	_v[1] /= _v[3];	_v[2] /= _v[3]; _v[3]=1.0; }
+		return *this;
+	};
+
+	inline void homoNormalize(void)
+	{
+		this->HomoNormalize();
+	};
+
+	inline Point4 homoNormalized(void) const
+	{
+		Point4<ScalarType> p = *this;
+		p.homoNormalize();
+		return p;
+	}
+
   /** @name Comparison operators (lexicographical order)
   **/
     inline bool operator == (  const Point4& p ) const
@@ -383,6 +430,12 @@ template<class T>
 double StableDot ( Point4<T> const & p0, Point4<T> const & p1 )
 {
 	return p0.StableDot(p1);
+}
+
+template <typename Scalar>
+inline Point4<Scalar> operator*(const Scalar s, const Point4<Scalar> & p)
+{
+	return (p * s);
 }
 
 typedef Point4<short>  Point4s;

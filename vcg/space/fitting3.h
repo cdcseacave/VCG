@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004                                                \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -29,8 +29,8 @@
 #include <vcg/math/matrix44.h>
 #include <vcg/math/matrix33.h>
 
-#include <eigenlib/Eigen/Core>
-#include <eigenlib/Eigen/Eigenvalues>
+#include <Eigen/Core>
+#include <Eigen/Eigenvalues>
 
 namespace vcg {
 

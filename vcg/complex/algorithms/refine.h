@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004                                                \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -28,10 +28,8 @@
 #include <map>
 #include <vcg/space/sphere3.h>
 #include <vcg/space/plane3.h>
-#include <vcg/simplex/face/pos.h>
-#include <vcg/simplex/face/topology.h>
-#include <vcg/complex/algorithms/update/topology.h>
-#include <vcg/complex/algorithms/update/flag.h>
+#include <vcg/complex/algorithms/clean.h>
+#include <vcg/space/texcoord2.h>
 #include <vcg/space/triangle3.h>
 
 namespace vcg{
@@ -124,7 +122,7 @@ struct BaseInterpolator
 // providing, in the constructor, an interpolator functor that will be called for each new vertex to be created.
 
 template<class MESH_TYPE, class InterpolatorFunctorType = BaseInterpolator< MESH_TYPE> >
-struct MidPoint : public   std::function<typename MESH_TYPE::CoordType (face::Pos<typename MESH_TYPE::FaceType>)>
+struct MidPoint
 {
      typedef typename face::Pos<typename MESH_TYPE::FaceType> PosType;
      typedef typename MESH_TYPE::VertexType VertexType;
@@ -140,19 +138,23 @@ struct MidPoint : public   std::function<typename MESH_TYPE::CoordType (face::Po
 
     void operator()(VertexType &nv, PosType  ep){
         assert(mp);
-        nv.P()=   (ep.f->V(ep.z)->P()+ep.f->V1(ep.z)->P())/2.0;
+        VertexType *V0 = ep.V() ;
+        VertexType *V1 = ep.VFlip() ;
+        if(V0 > V1) std::swap(V1,V0);
+
+        nv.P()=   (V0->P()+V1->P())/2.0;
 
         if( tri::HasPerVertexNormal(*mp))
-            nv.N()= (ep.f->V(ep.z)->N()+ep.f->V1(ep.z)->N()).normalized();
+            nv.N()= (V0->N()+V1->N()).normalized();
 
         if( tri::HasPerVertexColor(*mp))
-            nv.C().lerp(ep.f->V(ep.z)->C(),ep.f->V1(ep.z)->C(),.5f);
+            nv.C().lerp(V0->C(),V1->C(),.5f);
 
         if( tri::HasPerVertexQuality(*mp))
-            nv.Q() = ((ep.f->V(ep.z)->Q()+ep.f->V1(ep.z)->Q())) / 2.0;
+            nv.Q() = (V0->Q()+V1->Q()) / 2.0;
 
         if( tri::HasPerVertexTexCoord(*mp))
-            nv.T().P() = ((ep.f->V(ep.z)->T().P()+ep.f->V1(ep.z)->T().P())) / 2.0;
+            nv.T().P() = (V0->T().P()+V1->T().P()) / 2.0;
         if(intFunc)
           (*intFunc)(nv,ep);
     }
@@ -177,7 +179,7 @@ struct MidPoint : public   std::function<typename MESH_TYPE::CoordType (face::Po
 
 
 template<class MESH_TYPE>
-struct MidPointArc : public std::function<typename MESH_TYPE::CoordType (face::Pos<typename MESH_TYPE::FaceType>)>
+struct MidPointArc
 {
     void operator()(typename MESH_TYPE::VertexType &nv, face::Pos<typename MESH_TYPE::FaceType> ep)
     {
@@ -249,7 +251,7 @@ A non linear subdivision scheme for triangle meshes
 
 */
 template<class MESH_TYPE>
-struct MidPointArcNaive : public std::function<typename MESH_TYPE::CoordType (face::Pos<typename MESH_TYPE::FaceType>)>
+struct MidPointArcNaive
 {
     typename MESH_TYPE::CoordType operator()(face::Pos<typename MESH_TYPE::FaceType>  ep)
     {
@@ -301,7 +303,7 @@ Given a mesh the following function refines it according to two functor objects:
 
 - a predicate that tells if a given edge must be splitted
 
-- a functor that gives you the new poistion of the created vertices (starting from an edge)
+- a functor that gives you the new position of the created vertices (starting from an edge)
 
 If RefineSelected is true only selected faces are taken into account for being splitted.
 
@@ -314,8 +316,8 @@ class RefinedFaceData
     {
         public:
         RefinedFaceData(){
-            ep[0]=0;ep[1]=0;ep[2]=0;
-            vp[0]=0;vp[1]=0;vp[2]=0;
+            ep[0] = ep[1] = ep[2] = false;
+            vp[0] = vp[1] = vp[2] = NULL;
         }
         bool ep[3];
         VertexPointer vp[3];
@@ -441,11 +443,11 @@ bool RefineE(MESH_TYPE &m, MIDPOINT &mid, EDGEPRED &ep,bool RefineSelected=false
     TexCoordType wtt[6];  // per ogni faccia sono al piu' tre i nuovi valori
     // di texture per wedge (uno per ogni edge)
 
-    int fca=0,fcn =0;
+    int fca=0;
     for(fi=m.face.begin();fi!=oldendf;++fi) if(!(*fi).IsD())
     {
-      if(cb && (++step%PercStep)==0)(*cb)(step/PercStep,"Refining...");
-      fcn++;
+      if(cb && (++step%PercStep)==0)
+          (*cb)(step/PercStep,"Refining...");
       vv[0]=(*fi).V(0);
       vv[1]=(*fi).V(1);
       vv[2]=(*fi).V(2);
@@ -453,7 +455,7 @@ bool RefineE(MESH_TYPE &m, MIDPOINT &mid, EDGEPRED &ep,bool RefineSelected=false
       vv[4] = RD[fi].vp[1];
       vv[5] = RD[fi].vp[2];
 
-      int ind=((&*vv[3])?1:0)+((&*vv[4])?2:0)+((&*vv[5])?4:0);
+      int ind = ((vv[3] != NULL) ? 1 : 0) + ((vv[4] != NULL) ? 2 : 0) + ((vv[5] != NULL) ? 4 : 0);
 
       nf[0]=&*fi;
       int i;
@@ -466,29 +468,41 @@ bool RefineE(MESH_TYPE &m, MIDPOINT &mid, EDGEPRED &ep,bool RefineSelected=false
       }
 
 
-      if(tri::HasPerWedgeTexCoord(m))
-        for(i=0;i<3;++i)	{
-          wtt[i]=(*fi).WT(i);
-          wtt[3+i]=mid.WedgeInterp((*fi).WT(i),(*fi).WT((i+1)%3));
-        }
+	if(tri::HasPerWedgeTexCoord(m))
+		for(i=0;i<3;++i)
+		{
+			wtt[i]=(*fi).WT(i);
+			wtt[3+i]=mid.WedgeInterp((*fi).WT(i),(*fi).WT((i+1)%3));
+		}
 
-      int orgflag=	(*fi).Flags();
-      for(i=0;i<SplitTab[ind].TriNum;++i)
-        for(j=0;j<3;++j){
-          (*nf[i]).V(j)=&*vv[SplitTab[ind].TV[i][j]];
+	int orgflag = (*fi).Flags();
+	for (i=0; i<SplitTab[ind].TriNum; ++i)
+		for(j=0;j<3;++j)
+		{
+			(*nf[i]).V(j)=&*vv[SplitTab[ind].TV[i][j]];
 
-          if(tri::HasPerWedgeTexCoord(m)) //analogo ai vertici...
-            (*nf[i]).WT(j)=wtt[SplitTab[ind].TV[i][j]];
+			if(tri::HasPerWedgeTexCoord(m)) //analogo ai vertici...
+				(*nf[i]).WT(j) = wtt[SplitTab[ind].TV[i][j]];
 
-          assert((*nf[i]).V(j)!=0);
-          if(SplitTab[ind].TE[i][j]!=3){
-            if(orgflag & (MESH_TYPE::FaceType::BORDER0<<(SplitTab[ind].TE[i][j])))
-              (*nf[i]).SetB(j);
-            else
-              (*nf[i]).ClearB(j);
-          }
-          else (*nf[i]).ClearB(j);
-        }
+			assert((*nf[i]).V(j)!=0);
+			if(SplitTab[ind].TE[i][j]!=3)
+			{
+				if(orgflag & (MESH_TYPE::FaceType::BORDER0<<(SplitTab[ind].TE[i][j])))
+					(*nf[i]).SetB(j);
+				else
+					(*nf[i]).ClearB(j);
+
+				if(orgflag & (MESH_TYPE::FaceType::FACEEDGESEL0<<(SplitTab[ind].TE[i][j])))
+					(*nf[i]).SetFaceEdgeS(j);
+				else
+					(*nf[i]).ClearFaceEdgeS(j);
+			}
+			else
+			{
+				(*nf[i]).ClearB(j);
+				(*nf[i]).ClearFaceEdgeS(j);
+			}
+		}
 
       if(SplitTab[ind].TriNum==3 &&
          SquaredDistance(vv[SplitTab[ind].swap[0][0]]->P(),vv[SplitTab[ind].swap[0][1]]->P()) <
@@ -505,6 +519,11 @@ bool RefineE(MESH_TYPE &m, MIDPOINT &mid, EDGEPRED &ep,bool RefineSelected=false
         if((*nf[2]).IsB(0)) (*nf[1]).SetB(1); else (*nf[1]).ClearB(1);
         (*nf[1]).ClearB(0);
         (*nf[2]).ClearB(0);
+
+        if((*nf[1]).IsFaceEdgeS(0)) (*nf[2]).SetFaceEdgeS(1); else (*nf[2]).ClearFaceEdgeS(1);
+        if((*nf[2]).IsFaceEdgeS(0)) (*nf[1]).SetFaceEdgeS(1); else (*nf[1]).ClearFaceEdgeS(1);
+        (*nf[1]).ClearFaceEdgeS(0);
+        (*nf[2]).ClearFaceEdgeS(0);
       }
     }
 
@@ -556,7 +575,7 @@ Siggraph 2000 Course Notes
 */
 
 template<class MESH_TYPE>
-struct MidPointButterfly : public std::function<typename MESH_TYPE::CoordType (face::Pos<typename MESH_TYPE::FaceType>)>
+struct MidPointButterfly
 {
   MESH_TYPE &m;
   MidPointButterfly(MESH_TYPE &_m):m(_m){}
@@ -670,7 +689,7 @@ struct MidPointButterfly : public std::function<typename MESH_TYPE::CoordType (f
 // Versione modificata per tenere di conto in meniara corretta dei vertici con valenza alta
 
 template<class MESH_TYPE>
-struct MidPointButterfly2 : public std::function<typename MESH_TYPE::CoordType (face::Pos<typename MESH_TYPE::FaceType>)>
+struct MidPointButterfly2
 {
     typename MESH_TYPE::CoordType operator()(face::Pos<typename MESH_TYPE::FaceType>  ep)
     {
@@ -761,7 +780,7 @@ face::Pos<typename MESH_TYPE::FaceType> he(ep.f,ep.z,ep.f->V(ep.z));
   */
 
 template<class MESH_TYPE>
-class QualityMidPointFunctor : public std::function<typename MESH_TYPE::CoordType (face::Pos<typename MESH_TYPE::FaceType>)>
+class QualityMidPointFunctor
 {
 public:
   typedef Point3<typename MESH_TYPE::ScalarType> Point3x;
@@ -807,23 +826,24 @@ class QualityEdgePredicate
   typedef Point3<typename MESH_TYPE::ScalarType> Point3x;
   typedef typename MESH_TYPE::ScalarType ScalarType;
   ScalarType thr;
-  QualityEdgePredicate(const ScalarType &thr):thr(thr) {}
+  ScalarType tolerance;
+  QualityEdgePredicate(const ScalarType &thr,ScalarType _tolerance=0.02):thr(thr) {tolerance=_tolerance;}
   bool operator()(face::Pos<typename MESH_TYPE::FaceType> ep)
     {
     ScalarType q0=ep.f->V0(ep.z)->Q()-thr;
     ScalarType q1=ep.f->V1(ep.z)->Q()-thr;
     if(q0>q1) std::swap(q0,q1);
-    if ( q0*q1 > 0) return false;
+    if ( q0*q1 >= 0) return false;
     // now a small check to be sure that we do not make too thin crossing.
     double pp= q0/(q0-q1);
-    if(fabs(pp)< 0.001) return false;
+    if ((fabs(pp)< tolerance)||(fabs(pp)> (1-tolerance))) return false;
     return true;
   }
 };
 
 
 template<class MESH_TYPE>
-struct MidPointSphere : public std::function<typename MESH_TYPE::CoordType (face::Pos<typename MESH_TYPE::FaceType>)>
+struct MidPointSphere
 {
     Sphere3<typename MESH_TYPE::ScalarType> sph;
     typedef Point3<typename MESH_TYPE::ScalarType> Point3x;
@@ -869,7 +889,7 @@ class EdgeSplSphere
 };
 
 template<class TRIMESH_TYPE>
-struct CenterPointBarycenter : public std::function<typename TRIMESH_TYPE::CoordType (typename TRIMESH_TYPE::FacePointer)>
+struct CenterPointBarycenter
 {
     typename TRIMESH_TYPE::CoordType operator()(typename TRIMESH_TYPE::FacePointer f){
         return vcg::Barycenter<typename TRIMESH_TYPE::FaceType>(*f);
@@ -879,7 +899,6 @@ struct CenterPointBarycenter : public std::function<typename TRIMESH_TYPE::Coord
 /// \brief Triangle split
 /// Simple templated function for splitting a triangle with a internal point.
 ///  It can be templated on a CenterPoint class that is used to generate the position of the internal point.
-
 
 template<class TRIMESH_TYPE, class CenterPoint=CenterPointBarycenter <TRIMESH_TYPE> >
 class TriSplit
@@ -894,48 +913,48 @@ public:
   {
     vB->P() = Center(f);
 
-    //i tre vertici della faccia da dividere
+    //three vertices of the face to be split
     VertexType *V0,*V1,*V2;
     V0 = f->V(0);
     V1 = f->V(1);
     V2 = f->V(2);
 
-    //risistemo la faccia di partenza
+    //reupdate initial face
     (*f).V(2) = &(*vB);
-    //Faccia nuova #1
+    //new face #1
     (*f1).V(0) = &(*vB);
     (*f1).V(1) = V1;
     (*f1).V(2) = V2;
-    //Faccia nuova #2
+    //new face #2
     (*f2).V(0) = V0;
     (*f2).V(1) = &(*vB);
     (*f2).V(2) = V2;
 
     if(f->HasFFAdjacency())
     {
-      //adiacenza delle facce adiacenti a quelle aggiunte
+      //update adjacency
       f->FFp(1)->FFp(f->FFi(1)) = f1;
       f->FFp(2)->FFp(f->FFi(2)) = f2;
 
-      //adiacenza ff
+      // ff adjacency
       FaceType *  FF0,*FF1,*FF2;
       FF0 = f->FFp(0);
       FF1 = f->FFp(1);
       FF2 = f->FFp(2);
 
-      //Indici di adiacenza ff
+      //ff adjacency indexes
       char FFi0,FFi1,FFi2;
       FFi0 = f->FFi(0);
       FFi1 = f->FFi(1);
       FFi2 = f->FFi(2);
 
-      //adiacenza della faccia di partenza
+      //initial face
       (*f).FFp(1) = &(*f1);
       (*f).FFi(1) = 0;
       (*f).FFp(2) = &(*f2);
       (*f).FFi(2) = 0;
 
-      //adiacenza della faccia #1
+      //face #1
       (*f1).FFp(0) = f;
       (*f1).FFi(0) = 1;
 
@@ -945,7 +964,7 @@ public:
       (*f1).FFp(2) = &(*f2);
       (*f1).FFi(2) = 1;
 
-      //adiacenza della faccia #2
+      //face #2
       (*f2).FFp(0) = f;
       (*f2).FFi(0) = 2;
 
@@ -955,8 +974,308 @@ public:
       (*f2).FFp(2) = FF2;
       (*f2).FFi(2) = FFi2;
     }
+    //update faceEdge Sel if needed
+    if (f->HasFlags())
+    {
+        bool IsFaceEdgeS[3];
+        //collect and clear
+        for (size_t i=0;i<3;i++)
+        {
+            IsFaceEdgeS[i]=(*f).IsFaceEdgeS(i);
+            (*f).ClearFaceEdgeS(i);
+            (*f1).ClearFaceEdgeS(i);
+            (*f2).ClearFaceEdgeS(i);
+        }
+        //set back
+        if (IsFaceEdgeS[0])(*f).SetFaceEdgeS(0);
+        if (IsFaceEdgeS[1])(*f1).SetFaceEdgeS(1);
+        if (IsFaceEdgeS[2])(*f2).SetFaceEdgeS(2);
+    }
   }
 }; // end class TriSplit
+
+template <class MeshType>
+void TrivialMidPointRefine(MeshType & m)
+{
+  typedef typename MeshType::VertexIterator VertexIterator;
+  typedef typename MeshType::FaceIterator FaceIterator;
+  typedef typename MeshType::VertexPointer VertexPointer;
+  typedef typename MeshType::FacePointer FacePointer;
+  
+  Allocator<MeshType>::CompactEveryVector(m);
+  int startFn = m.fn;
+  FaceIterator lastf = tri::Allocator<MeshType>::AddFaces(m,m.fn*3);
+  VertexIterator lastv = tri::Allocator<MeshType>::AddVertices(m,m.fn*3);
+  
+  /*
+   *               v0
+   *              /  \
+   *            /  f0  \
+   *          /          \
+   *        mp01----------mp02
+   *       /  \    f3    /   \
+   *     / f1   \      /  f2   \
+   *   /          \  /           \
+   *v1 ---------- mp12------------v2
+   *
+  */
+  
+  for(int i=0;i<startFn;++i)
+  {
+    FacePointer f0= &m.face[i];
+    FacePointer f1= &*lastf; ++lastf;
+    FacePointer f2= &*lastf; ++lastf;
+    FacePointer f3= &*lastf; ++lastf;    
+    VertexPointer v0 =m.face[i].V(0); 
+    VertexPointer v1 =m.face[i].V(1); 
+    VertexPointer v2 =m.face[i].V(2); 
+    VertexPointer mp01 = &*lastv; ++lastv; 
+    VertexPointer mp12 = &*lastv; ++lastv; 
+    VertexPointer mp02 = &*lastv; ++lastv; 
+    
+    f0->V(0) = v0;   f0->V(1) = mp01; f0->V(2) = mp02;
+    f1->V(0) = v1;   f1->V(1) = mp12; f1->V(2) = mp01;
+    f2->V(0) = v2;   f2->V(1) = mp02; f2->V(2) = mp12;
+    f3->V(0) = mp12; f3->V(1) = mp02; f3->V(2) = mp01;
+    mp01->P() = (v0>v1) ? (v0->P()+v1->P())/2.0 : (v1->P()+v0->P())/2.0;
+    mp12->P() = (v1>v2) ? (v1->P()+v2->P())/2.0 : (v2->P()+v1->P())/2.0;
+    mp02->P() = (v0>v2) ? (v0->P()+v2->P())/2.0 : (v2->P()+v0->P())/2.0;
+  }
+  
+  int vd = tri::Clean<MeshType>::RemoveDuplicateVertex(m);
+  printf("Vertex unification %i\n",vd);
+  int vu = tri::Clean<MeshType>::RemoveUnreferencedVertex(m);
+  printf("Vertex unref %i\n",vu);
+  Allocator<MeshType>::CompactEveryVector(m);
+}
+
+
+template<class MESH_TYPE, class EDGEPRED>
+bool RefineMidpoint(MESH_TYPE &m, EDGEPRED &ep, bool RefineSelected=false, CallBackPos *cb = 0)
+{
+	// common typenames
+	typedef typename MESH_TYPE::VertexIterator VertexIterator;
+	typedef typename MESH_TYPE::FaceIterator FaceIterator;
+	typedef typename MESH_TYPE::VertexPointer VertexPointer;
+	typedef typename MESH_TYPE::FacePointer FacePointer;
+	typedef typename MESH_TYPE::FaceType FaceType;
+	typedef typename MESH_TYPE::FaceType::TexCoordType TexCoordType;
+
+	assert(tri::HasFFAdjacency(m));
+	tri::UpdateFlags<MESH_TYPE>::FaceBorderFromFF(m);
+	typedef face::Pos<FaceType>  PosType;
+
+	int j,NewVertNum=0,NewFaceNum=0;
+
+	typedef RefinedFaceData<VertexPointer> RFD;
+	typedef typename MESH_TYPE :: template PerFaceAttributeHandle<RFD> HandleType;
+	HandleType RD  = tri::Allocator<MESH_TYPE>:: template AddPerFaceAttribute<RFD> (m,std::string("RefineData"));
+
+	MidPoint<MESH_TYPE> mid(&m);
+	// Callback stuff
+	int step=0;
+	int PercStep=std::max(1,m.fn/33);
+
+	// First Loop: We analyze the mesh to compute the number of the new faces and new vertices
+	FaceIterator fi;
+  for(fi=m.face.begin(),j=0;fi!=m.face.end();++fi) if(!(*fi).IsD())
+    {
+	    if(cb && (++step%PercStep)==0) (*cb)(step/PercStep,"Refining...");
+		// skip unselected faces if necessary
+		if(RefineSelected && !(*fi).IsS()) continue;
+
+		for(j=0;j<3;j++)
+		    {
+			    if(RD[fi].ep[j]) continue;
+
+				PosType edgeCur(&*fi,j);
+				if(RefineSelected && ! edgeCur.FFlip()->IsS()) continue;
+				if(!ep(edgeCur)) continue;
+
+				RD[edgeCur.F()].ep[edgeCur.E()]=true;
+				++NewFaceNum;
+				++NewVertNum;
+				PosType start = edgeCur;
+				if (!edgeCur.IsBorder())
+				{
+					do
+					{
+						edgeCur.NextF();
+						edgeCur.F()->SetV();
+						RD[edgeCur.F()].ep[edgeCur.E()] = true;
+						++NewFaceNum;
+					} while (edgeCur != start);
+					--NewFaceNum; //start is counted twice (could remove the first increment above)
+				}
+		    }
+
+  } // end face loop
+
+    if(NewVertNum ==0 )
+	    {
+		    tri::Allocator<MESH_TYPE> :: template DeletePerFaceAttribute<RefinedFaceData<VertexPointer> >  (m,RD);
+			return false;
+	    }
+	VertexIterator lastv = tri::Allocator<MESH_TYPE>::AddVertices(m,NewVertNum);
+
+	// Secondo loop: We initialize a edge->vertex map
+
+	for(fi=m.face.begin();fi!=m.face.end();++fi) if(!(*fi).IsD())
+  {
+		if(cb && (++step%PercStep)==0)(*cb)(step/PercStep,"Refining...");
+	 for(j=0;j<3;j++)
+	     {
+		        // skip unselected faces if necessary
+		        if(RefineSelected && !(*fi).IsS()) continue;
+				for(j=0;j<3;j++)
+				{
+					PosType edgeCur(&*fi,j);
+					if(RefineSelected && ! edgeCur.FFlip()->IsS()) continue;
+
+					if( RD[edgeCur.F()].ep[edgeCur.E()] &&  RD[edgeCur.F()].vp[edgeCur.E()] ==0 )
+					{
+						RD[edgeCur.F()].vp[edgeCur.E()] = &*lastv;
+						mid(*lastv,edgeCur);
+						PosType start = edgeCur;
+						if (!edgeCur.IsBorder())
+						{
+							do
+							{
+								edgeCur.NextF();
+								assert(RD[edgeCur.F()].ep[edgeCur.E()]);
+								RD[edgeCur.F()].vp[edgeCur.E()] = &*lastv;
+							} while (edgeCur != start);
+						}
+						++lastv;
+					}
+				}
+	     }
+  }
+
+	assert(lastv==m.vert.end()); // critical assert: we MUST have used all the vertex that we forecasted we need
+
+	FaceIterator lastf = tri::Allocator<MESH_TYPE>::AddFaces(m,NewFaceNum);
+	FaceIterator oldendf = lastf;
+
+/*
+ *               v0
+ *
+ *
+ *               f0
+ *
+ *       mp01     f3     mp02
+ *
+ *
+ *       f1               f2
+ *
+ *v1            mp12                v2
+ *
+*/
+
+	VertexPointer vv[6];	// The six vertices that arise in the single triangle splitting
+	//     0..2 Original triangle vertices
+	//     3..5 mp01, mp12, mp20 midpoints of the three edges
+	FacePointer nf[4];   // The (up to) four faces that are created.
+
+	TexCoordType wtt[6];  // per ogni faccia sono al piu' tre i nuovi valori
+	// di texture per wedge (uno per ogni edge)
+
+	int fca=0;
+	for(fi=m.face.begin();fi!=oldendf;++fi) if(!(*fi).IsD())
+	{
+		if(cb && (++step%PercStep)==0)
+		  (*cb)(step/PercStep,"Refining...");
+	  vv[0]=(*fi).V(0);
+	  vv[1]=(*fi).V(1);
+	  vv[2]=(*fi).V(2);
+	  vv[3] = RD[fi].vp[0];
+	  vv[4] = RD[fi].vp[1];
+	  vv[5] = RD[fi].vp[2];
+
+	  int ind = ((vv[3] != NULL) ? 1 : 0) + ((vv[4] != NULL) ? 2 : 0) + ((vv[5] != NULL) ? 4 : 0);
+
+	  nf[0]=&*fi;
+	  int i;
+	  for(i=1;i<SplitTab[ind].TriNum;++i){
+		nf[i]=&*lastf; ++lastf; fca++;
+		if(RefineSelected || (*fi).IsS()) (*nf[i]).SetS();
+		nf[i]->ImportData(*fi);
+
+	  }
+
+
+	if(tri::HasPerWedgeTexCoord(m))
+		for(i=0;i<3;++i)
+		{
+			wtt[i]=(*fi).WT(i);
+			wtt[3+i]=mid.WedgeInterp((*fi).WT(i),(*fi).WT((i+1)%3));
+		}
+
+	int orgflag = (*fi).Flags();
+	for (i=0; i<SplitTab[ind].TriNum; ++i)
+		for(j=0;j<3;++j)
+		{
+			(*nf[i]).V(j)=&*vv[SplitTab[ind].TV[i][j]];
+
+			if(tri::HasPerWedgeTexCoord(m)) //analogo ai vertici...
+				(*nf[i]).WT(j) = wtt[SplitTab[ind].TV[i][j]];
+
+			assert((*nf[i]).V(j)!=0);
+			if(SplitTab[ind].TE[i][j]!=3)
+			{
+				if(orgflag & (MESH_TYPE::FaceType::BORDER0<<(SplitTab[ind].TE[i][j])))
+					(*nf[i]).SetB(j);
+				else
+					(*nf[i]).ClearB(j);
+
+				if(orgflag & (MESH_TYPE::FaceType::FACEEDGESEL0<<(SplitTab[ind].TE[i][j])))
+					(*nf[i]).SetFaceEdgeS(j);
+				else
+					(*nf[i]).ClearFaceEdgeS(j);
+			}
+			else
+			{
+				(*nf[i]).ClearB(j);
+				(*nf[i]).ClearFaceEdgeS(j);
+			}
+		}
+
+	  if(SplitTab[ind].TriNum==3 &&
+	     SquaredDistance(vv[SplitTab[ind].swap[0][0]]->P(),vv[SplitTab[ind].swap[0][1]]->P()) <
+	     SquaredDistance(vv[SplitTab[ind].swap[1][0]]->P(),vv[SplitTab[ind].swap[1][1]]->P()) )
+	  { // swap the last two triangles
+		(*nf[2]).V(1)=(*nf[1]).V(0);
+		(*nf[1]).V(1)=(*nf[2]).V(0);
+		if(tri::HasPerWedgeTexCoord(m)){ //swap also textures coordinates
+			(*nf[2]).WT(1)=(*nf[1]).WT(0);
+			(*nf[1]).WT(1)=(*nf[2]).WT(0);
+		}
+
+		if((*nf[1]).IsB(0)) (*nf[2]).SetB(1); else (*nf[2]).ClearB(1);
+		if((*nf[2]).IsB(0)) (*nf[1]).SetB(1); else (*nf[1]).ClearB(1);
+		(*nf[1]).ClearB(0);
+		(*nf[2]).ClearB(0);
+
+		if((*nf[1]).IsFaceEdgeS(0)) (*nf[2]).SetFaceEdgeS(1); else (*nf[2]).ClearFaceEdgeS(1);
+		if((*nf[2]).IsFaceEdgeS(0)) (*nf[1]).SetFaceEdgeS(1); else (*nf[1]).ClearFaceEdgeS(1);
+		(*nf[1]).ClearFaceEdgeS(0);
+		(*nf[2]).ClearFaceEdgeS(0);
+	  }
+	}
+
+	assert(lastf==m.face.end());	 // critical assert: we MUST have used all the faces that we forecasted we need and that we previously allocated.
+	assert(!m.vert.empty());
+	for(fi=m.face.begin();fi!=m.face.end();++fi) if(!(*fi).IsD()){
+		assert((*fi).V(0)>=&*m.vert.begin() && (*fi).V(0)<=&m.vert.back() );
+	  assert((*fi).V(1)>=&*m.vert.begin() && (*fi).V(1)<=&m.vert.back() );
+	  assert((*fi).V(2)>=&*m.vert.begin() && (*fi).V(2)<=&m.vert.back() );
+	}
+	tri::UpdateTopology<MESH_TYPE>::FaceFace(m);
+
+	tri::Allocator<MESH_TYPE> :: template DeletePerFaceAttribute<RefinedFaceData<VertexPointer> >  (m,RD);
+
+	return true;
+}
 
 } // namespace tri
 } // namespace vcg

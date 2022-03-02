@@ -2,13 +2,13 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004                                                \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
 * All rights reserved.                                                      *
 *                                                                           *
-* This program is free software; you can redistribute it and/or modify      *   
+* This program is free software; you can redistribute it and/or modify      *
 * it under the terms of the GNU General Public License as published by      *
 * the Free Software Foundation; either version 2 of the License, or         *
 * (at your option) any later version.                                       *
@@ -37,8 +37,8 @@ Revision 1.1  2004/03/03 15:00:51  cignoni
 Initial commit
 
 ****************************************************************************/
-#ifndef __VCGLIB_IOTRIMESH_IO_PLY
-#define __VCGLIB_IOTRIMESH_IO_PLY
+#ifndef __VCGLIB_IOTETRAMESH_IO_PLY
+#define __VCGLIB_IOTETRAMESH_IO_PLY
 
 
 /**
@@ -52,9 +52,9 @@ namespace vcg {
 namespace tetra {
 namespace io {
 
-  
+
 /** Additional data needed or useful for parsing a ply mesh.
-This class can be passed to the ImporterPLY::Open() function for 
+This class can be passed to the ImporterPLY::Open() function for
 - retrieving additional per-vertex per-tetra data
 - specifying a callback for long ply parsing
 - knowing what data is  contained in a ply file
@@ -74,10 +74,10 @@ public:
   }
   /// Store the error codes enconutered when parsing a ply
   int status;
-  /// It returns a bit mask describing the field preesnt in the ply file
-  int mask;  
+  /// It returns a bit mask describing the field present in the ply file
+  int mask;
 
-  /// a Simple callback that can be used for long ply parsing. 
+  /// a Simple callback that can be used for long ply parsing.
   // it returns the current position, and formats a string with a description of what th efunction is doing (loading vertexes, faces...)
   CallBackPos *cb;
 
@@ -87,7 +87,7 @@ public:
   PropDescriptor *VertexData;
   /// the number of per-face descriptor (usually 0)
   int fdn;
-  
+
   /// The additional vertex descriptor that a user can specify to load additional per-face non-standard data stored in a ply
   PropDescriptor *TetraData;
 

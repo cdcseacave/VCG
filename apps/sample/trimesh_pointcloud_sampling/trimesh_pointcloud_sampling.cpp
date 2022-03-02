@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004-2012                                           \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -26,7 +26,6 @@
 #include<wrap/io_trimesh/export.h>
 
 #include<vcg/complex/algorithms/point_sampling.h>
-#include<vcg/complex/algorithms/create/platonic.h>
 #include<vcg/complex/algorithms/clustering.h>
 
 using namespace vcg;
@@ -71,11 +70,10 @@ int main( int argc, char **argv )
   float radius = m.bbox.Diag() * perc;
   printf("Subsampling a PointCloud of %i vert with %f radius\n",m.VN(),radius);
   tri::SurfaceSampling<MyMesh,tri::MeshSampler<MyMesh> >::PoissonDiskParam pp;
-  tri::SurfaceSampling<MyMesh,tri::MeshSampler<MyMesh> >::PoissonDiskParam::Stat pds; pp.pds=&pds;
   pp.bestSampleChoiceFlag=false;
   tri::SurfaceSampling<MyMesh,tri::MeshSampler<MyMesh> >::PoissonDiskPruning(mps, m, radius, pp);
   tri::io::ExporterPLY<MyMesh>::Save(subM,"PoissonMesh.ply");
-  printf("Sampled %i vertices in %5.2f\n",subM.VN(), float(pds.pruneTime+pds.gridTime)/float(CLOCKS_PER_SEC));
+  printf("Sampled %i vertices in %5.2f\n",subM.VN(), float(pp.pds.pruneTime+pp.pds.gridTime)/float(CLOCKS_PER_SEC));
 
   int t0=clock();
   tri::Clustering<MyMesh, vcg::tri::AverageColorCell<MyMesh> > ClusteringGrid;

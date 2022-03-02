@@ -5,7 +5,7 @@
 //
 // This Source Code Form is subject to the terms of the Mozilla
 // Public License v. 2.0. If a copy of the MPL was not distributed
-// with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// with this file, You can obtain one at the mozilla.org home page
 
 #ifndef EIGEN_NONLINEAROPTIMIZATION_MODULE
 #define EIGEN_NONLINEAROPTIMIZATION_MODULE
@@ -34,15 +34,15 @@
   * Marquardt algorithm) and the second one is used to find 
   * a zero for the system (Powell hybrid "dogleg" method).
   *
-  * This code is a port of minpack (http://en.wikipedia.org/wiki/MINPACK).
+  * This code is a port of minpack (xxxp://en.wikipedia.org/wiki/MINPACK).
   * Minpack is a very famous, old, robust and well-reknown package, written in 
   * fortran. Those implementations have been carefully tuned, tested, and used
   * for several decades.
   *
-  * The original fortran code was automatically translated using f2c (http://en.wikipedia.org/wiki/F2c) in C,
+  * The original fortran code was automatically translated using f2c (xxxp://en.wikipedia.org/wiki/F2c) in C,
   * then c++, and then cleaned by several different authors.
   * The last one of those cleanings being our starting point : 
-  * http://devernay.free.fr/hacks/cminpack.html
+  * xxxp://devernay.free.fr/hacks/cminpack.html
   * 
   * Finally, we ported this code to Eigen, creating classes and API
   * coherent with Eigen. When possible, we switched to Eigen
@@ -62,7 +62,7 @@
   * 
   * Other tests were added by myself at the very beginning of the 
   * process and check the results for levenberg-marquardt using the reference data 
-  * on http://www.itl.nist.gov/div898/strd/nls/nls_main.shtml. Since then i've 
+  * on xxxp://www.itl.nist.gov/div898/strd/nls/nls_main.shtml. Since then i've 
   * carefully checked that the same results were obtained when modifiying the 
   * code. Please note that we do not always get the exact same decimals as they do,
   * but this is ok : they use 128bits float, and we do the tests using the C type 'double',
@@ -71,7 +71,7 @@
   * (c)minpack performs VERY well compared to those, both in accuracy and speed.
   * 
   * The documentation for running the tests is on the wiki
-  * http://eigen.tuxfamily.org/index.php?title=Tests
+  * xxxp://eigen.tuxfamily.org/index.php?title=Tests
   * 
   * \section API API : overview of methods
   * 

@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004-2012                                           \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -32,8 +32,6 @@ Given a mesh (an icosahedron) for each face we get a few random samples over it,
 */
 
 #include<vcg/complex/complex.h>
-#include<vcg/complex/algorithms/update/topology.h>
-#include<vcg/complex/algorithms/update/normal.h>
 #include<vcg/complex/algorithms/create/platonic.h>
 #include<vcg/complex/algorithms/point_sampling.h>
 #include<wrap/io_trimesh/import_off.h>

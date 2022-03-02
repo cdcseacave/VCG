@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004                                                \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -38,20 +38,24 @@ This class encapsulate a filter for save dxf meshes.
 */
 class ExporterDXF
 {
+  typedef typename SaveMeshType::CoordType CoordType;
 public:
   ///Standard call for saving a mesh
-  static int Save(SaveMeshType &m, const char * filename)
+  static int Save(const SaveMeshType &m, const char * filename)
   {
     if(m.fn==0 && m.en != 0) return SaveEdge(m,filename);
 
     FILE * o = fopen(filename,"w");
     if(o==NULL)	return 1;
+
+	writeHeader(o, m);
+
     fprintf(o,"0\n");
     fprintf(o,"SECTION\n");
     fprintf(o,"2\n");
     fprintf(o,"ENTITIES\n");
 
-    typename SaveMeshType::FaceIterator fi;
+    typename SaveMeshType::ConstFaceIterator fi;
     for(fi=m.face.begin(); fi!=m.face.end(); ++fi)
     {
       if (!fi->IsD())
@@ -82,39 +86,46 @@ public:
     fprintf(o,"ENDSEC\n");
     fprintf(o,"0\n");
     fprintf(o,"EOF\n");
-    fclose(o);
-    return 0;
+
+	int result = 0;
+	if (ferror(o)) result = 2;
+	fclose(o);
+	return result;
   }
   /// Standard call for knowing the meaning of an error code
   static const char *ErrorMsg(int error)
   {
-    static std::vector<std::string> dxf_error_msg;
-    if(dxf_error_msg.empty())
-    {
-      dxf_error_msg.resize(2 );
-      dxf_error_msg[0]="No errors";
-      dxf_error_msg[1]="Can't open file";
-    }
+	  static std::vector<std::string> dxf_error_msg;
+	  if (dxf_error_msg.empty())
+	  {
+		  dxf_error_msg.resize(3);
+		  dxf_error_msg[0] = "No errors";
+		  dxf_error_msg[1] = "Can't open file";
+		  dxf_error_msg[2] = "Output Stream Error";
+	  }
 
-    if(error>1 || error<0) return "Unknown error";
-    else return dxf_error_msg[error].c_str();
+	  if (error>2 || error<0) return "Unknown error";
+	  else return dxf_error_msg[error].c_str();
   }
 
 
-  static bool SaveEdge(SaveMeshType  &mp, const char * filename)
+  static bool SaveEdge(const SaveMeshType  &m, const char * filename)
   {
     FILE * o = fopen(filename,"w");
     if(o==NULL)	return 1;
+
+	writeHeader(o, m);
+
     fprintf(o,"0\n");
     fprintf(o,"SECTION\n");
     fprintf(o,"2\n");
     fprintf(o,"ENTITIES\n");
 
-    typename SaveMeshType::EdgeIterator ei;
-    for(ei=mp.edge.begin(); ei!=mp.edge.end();++ei)
+    typename SaveMeshType::ConstEdgeIterator ei;
+    for(ei=m.edge.begin(); ei!=m.edge.end();++ei)
     {
-      Point3f p1 = (*ei).V(0)->P();
-      Point3f p2 = (*ei).V(1)->P();
+      CoordType p1 = (*ei).V(0)->P();
+      CoordType p2 = (*ei).V(1)->P();
 
       fprintf(o,"0\n");
       fprintf(o,"LINE\n");
@@ -142,6 +153,72 @@ public:
     fprintf(o,"EOF\n");
     fclose(o);
     return true;
+  }
+
+  static bool writeHeader(FILE* o, const SaveMeshType  &mp)
+  {
+	  // standard DXF header
+	  // most of data is meaningless, but required by a lot of importers
+	  fprintf(o, "999\n");
+	  fprintf(o, "DXF created by VCGLib\n");
+	  fprintf(o, "0\n");
+	  fprintf(o, "SECTION\n");
+	  fprintf(o, "2\n");
+	  fprintf(o, "HEADER\n");
+
+	  // Version of the dxf specs, most reader need version 12 or above (AC1009) 
+	  fprintf(o, "9\n");
+	  fprintf(o, "$ACADVER\n");
+	  fprintf(o, "1\n");
+	  fprintf(o, "AC1009\n");
+
+	  // Insertion base set by BASE command (in WCS)
+	  fprintf(o, "9\n");
+	  fprintf(o, "$INSBASE\n");
+	  fprintf(o, "10\n");
+	  fprintf(o, "0.0\n");
+	  fprintf(o, "20\n");
+	  fprintf(o, "0.0\n");
+	  fprintf(o, "30\n");
+	  fprintf(o, "0.0\n");
+
+	  // extents for draw space and line drawing... 
+	  // I will just use the data from the boundingbox (largest bbox value in all directions) 
+	  double emin = std::min(mp.bbox.min[0], std::min(mp.bbox.min[1], mp.bbox.min[2]));
+	  double emax = std::max(mp.bbox.max[0], std::max(mp.bbox.max[1], mp.bbox.max[2]));
+
+	  fprintf(o, "9\n");
+	  fprintf(o, "$EXTMIN\n");
+	  fprintf(o, "10\n");
+	  fprintf(o, "%f\n",emin);
+	  fprintf(o, "20\n");
+	  fprintf(o, "%f\n",emin);
+
+	  fprintf(o, "9\n");
+	  fprintf(o, "$EXTMAX\n");
+	  fprintf(o, "10\n");
+	  fprintf(o, "%f\n", emax);
+	  fprintf(o, "20\n");
+	  fprintf(o, "%f\n", emax);
+
+	  fprintf(o, "9\n");
+	  fprintf(o, "$LINMIN\n");
+	  fprintf(o, "10\n");
+	  fprintf(o, "%f\n", emin);
+	  fprintf(o, "20\n");
+	  fprintf(o, "%f\n", emin);
+
+	  fprintf(o, "9\n");
+	  fprintf(o, "$LINMAX\n");
+	  fprintf(o, "10\n");
+	  fprintf(o, "%f\n", emax);
+	  fprintf(o, "20\n");
+	  fprintf(o, "%f\n", emax);
+
+	  fprintf(o, "0\n");
+	  fprintf(o, "ENDSEC\n");
+
+	  return true;
   }
 
 

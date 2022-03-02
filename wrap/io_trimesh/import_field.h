@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004                                                \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -81,11 +81,68 @@ public:
         return true;
     }
 
+    static bool LoadNDF(MeshType &mesh,
+                        const char *path)
+    {
+        FILE *f = fopen(path,"rt");
+        if (!f)
+        {
+            fflush(stdout);
+            return false;
+        }
+
+        char skipstr[200];
+        //int readed0;
+        do{
+
+            fscanf(f,"%s\n",&skipstr[0]);
+            printf("%s\n",skipstr);
+        }while(strcmp(skipstr,"[Pjumps]")!=0);
+
+        //        fscanf(f,"%s\"",skipstr);
+        //        printf("%s\n",skipstr);
+        fseek(f, 7, SEEK_CUR);
+        char final[1];
+        do{
+            int period;
+            fscanf(f,"%d;",&period);
+            printf("%d\n",period);
+            fscanf(f,"%c",&final);
+            fseek(f, -1, SEEK_CUR);
+            //printf("%s\n",&final[0]);
+        }while(strcmp(final,"\"")!=0);
+
+        //        printf("%s\n",skipstr);
+        fflush(stdout);
+                for (int i=0;i<mesh.fn;i++)
+                {
+                    int i0=-1;
+                    int i1=-1;
+                    int i2=-1;
+                    double u0,v0,u1,v1,u2,v2;
+                    int readed1=fscanf(f,"%d %d %d %lf %lf %lf %lf %lf %lf",&i0,&i1,&i2,&u0,&v0,&u1,&v1,&u2,&v2);
+                    assert(readed1==9);
+                    vcg::Point2<ScalarType> UV[3];
+                    UV[0]= vcg::Point2<ScalarType>(u0,v0);
+                    UV[1]= vcg::Point2<ScalarType>(u1,v1);
+                    UV[2]= vcg::Point2<ScalarType>(u2,v2);
+                    CoordType dir1;
+                    CoordType dir2;
+                    vcg::tri::CrossField<MeshType>::GradientToCross(mesh.face[i],UV[0],UV[1],UV[2],dir1,dir2);
+                    dir1.Normalize();
+                    dir2.Normalize();
+                    mesh.face[i].PD1()=dir1;
+                    mesh.face[i].PD2()=dir2;
+                }
+                fclose(f);
+                return true;
+    }
+
     ///load a field on the mesh, it could be a vfield file (per vertex)
     ///or an ffield file (per face)
     static bool LoadFFIELD(MeshType &mesh,
-        const char *path,
-        bool per_vertex=false)
+                           const char *path,
+                           bool per_vertex=false)
     {
 
         FILE *f = fopen(path,"rt");
@@ -105,6 +162,7 @@ public:
             {
                 return false;
             }
+            while (fscanf(f,"%c",&c)!=EOF) if (c=='\n') break;
             int nnv = -1;
             if (fscanf(f,"%d",&nnv)!=1)
             {
@@ -130,13 +188,13 @@ public:
                 vcg::Point3<float> u,v;
                 float a,b;
                 if (fscanf(f,
-                    "%f %f %f %f %f %f %f %f",
-                    &a,&b,
-                    &(v.X()),&(v.Y()),&(v.Z()),
-                    &(u.X()),&(u.Y()),&(u.Z())
-                    )!=8) {
-                        //if (errorMsg) sprintf(errorMsg,"Format error reading vertex n. %d",i);
-                        return false;
+                           "%f %f %f %f %f %f %f %f",
+                           &a,&b,
+                           &(v.X()),&(v.Y()),&(v.Z()),
+                           &(u.X()),&(u.Y()),&(u.Z())
+                           )!=8) {
+                    //if (errorMsg) sprintf(errorMsg,"Format error reading vertex n. %d",i);
+                    return false;
                 }
 
                 u.Normalize();
@@ -144,13 +202,13 @@ public:
 
                 if (per_vertex)
                 {
-                  mesh.vert[i].PD1().Import(u);
-                  mesh.vert[i].PD2().Import(v);
+                    mesh.vert[i].PD1().Import(u);
+                    mesh.vert[i].PD2().Import(v);
                 }
                 else
                 {
-                  mesh.face[i].PD1().Import(u);
-                  mesh.face[i].PD2().Import(v);
+                    mesh.face[i].PD1().Import(u);
+                    mesh.face[i].PD2().Import(v);
                 }
             }
         }
@@ -161,25 +219,30 @@ public:
     ///Load a 4 rosy format file as used by
     ///Interactive Visualization of Rotational Symmetry Fields on Surfaces
     ///Jonathan Palacios and Eugene Zhang
-    static void Load4ROSY(MeshType &mesh,
-                        const char *path)
+    static bool Load4ROSY(MeshType &mesh,
+                          const char *path)
     {
-         FILE *f = fopen(path,"rt");
+        FILE *f = fopen(path,"rt");
+        if (!f)
+        {
+            return false;
+        }
         int num,symm;
         fscanf(f,"%d",&num);
-        assert(num==mesh.vn);
+        assert(num==mesh.fn);
         fscanf(f,"%d\n",&symm);
         assert(symm==4);
-        for (unsigned int i=0;i<num;i++)
+        for (int i=0;i<num;i++)
         {
             float dirX,dirY,dirZ;
             fscanf(f,"%f %f %f \n",&dirX,&dirY,&dirZ);
-            mesh.vert[i].PD1()=CoordType(dirX,dirY,dirZ);
-            mesh.vert[i].PD2()=mesh.vert[i].PD1()^mesh.vert[i].N();
-            mesh.vert[i].PD1().Normalize();
-            mesh.vert[i].PD2().Normalize();
+            mesh.face[i].PD1()=CoordType(dirX,dirY,dirZ);
+            mesh.face[i].PD2()=mesh.face[i].PD1()^mesh.face[i].N();
+            mesh.face[i].PD1().Normalize();
+            mesh.face[i].PD2().Normalize();
         }
         fclose(f);
+        return true;
     }
 
 
@@ -256,6 +319,59 @@ public:
         return true;
     }
 
+
+    //Load a 4 rosy format file as pair of angles
+    static bool Load2AngleFace(MeshType &mesh,
+                               const char *path)
+    {
+        FILE *f = fopen(path,"rt");
+        if (f==NULL)return false;
+        int num;
+        fscanf(f,"#%d param_field\n",&num);
+        if (num!=mesh.face.size())return false;
+        for (unsigned int i=0;i<mesh.face.size();i++)
+        {
+            float alpha1,alpha2;
+            int index;
+            fscanf(f,"%d %f %f \n",&index,&alpha1,&alpha2);
+            vcg::tri::CrossField<MeshType>::AnglesToCrossField(mesh.face[i],(ScalarType)alpha1,(ScalarType)alpha2,1);
+        }
+        fclose(f);
+        return true;
+    }
+
+    static bool LoadCSVField(MeshType &mesh,
+                             const std::string &field_1,
+                             const std::string &field_2,
+                             bool Normalize=true)
+    {
+        FILE *f1=NULL;
+        FILE *f2=NULL;
+        f1=fopen(field_1.c_str(),"rt");
+        if(f1==NULL)return false;
+        f2=fopen(field_2.c_str(),"rt");
+        if(f2==NULL)return false;
+        for (size_t i=0;i<mesh.face.size();i++)
+        {
+            float Xdir,Ydir,Zdir;
+            fscanf(f1,"%f,%f,%f\n",&Xdir,&Ydir,&Zdir);
+            mesh.face[i].PD1()=CoordType(Xdir,Ydir,Zdir);
+            //std::cout<<Xdir<<" "<<Ydir<<std::endl;
+            fscanf(f2,"%f,%f,%f\n",&Xdir,&Ydir,&Zdir);
+            mesh.face[i].PD2()=CoordType(Xdir,Ydir,Zdir);
+            //set the quality as force Value
+            if (Normalize)
+            {
+                mesh.face[i].PD1().Normalize();
+                mesh.face[i].PD2().Normalize();
+            }
+        }
+
+        //then color by quality
+        fclose(f1);
+        fclose(f2);
+        return true;
+    }
 
 }; // end class
 

@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004                                                \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -116,7 +116,14 @@ public:
 		ScalarType k = p.dot(_dir) - _offset;
 		return p - _dir * k;
 	}
-		
+
+  ///Mirror the point wrt the plane
+  PointType Mirror(const PointType &p) const	{
+     PointType mirr=Projection(p);
+     mirr+=mirr-p;
+     return mirr;
+  }
+
   /// Function to normalize direction
   void Normalize() {
 	  _dir.Normalize();

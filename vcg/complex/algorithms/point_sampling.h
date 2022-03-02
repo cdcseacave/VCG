@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004                                                \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -35,17 +35,18 @@ sampling strategies (montecarlo, stratified etc).
 #ifndef __VCGLIB_POINT_SAMPLING
 #define __VCGLIB_POINT_SAMPLING
 
+#include <random>
 
 #include <vcg/math/random_generator.h>
 #include <vcg/complex/algorithms/closest.h>
 #include <vcg/space/index/spatial_hashing.h>
+#include <vcg/complex/algorithms/hole.h>
 #include <vcg/complex/algorithms/stat.h>
 #include <vcg/complex/algorithms/create/platonic.h>
-#include <vcg/complex/algorithms/update/topology.h>
 #include <vcg/complex/algorithms/update/normal.h>
 #include <vcg/complex/algorithms/update/bounding.h>
-#include <vcg/complex/algorithms/update/flag.h>
 #include <vcg/space/segment2.h>
+#include <vcg/space/index/grid_static_ptr.h>
 
 namespace vcg
 {
@@ -62,8 +63,7 @@ namespace tri
  For example if you just want to get a vector with positions over the surface You have just to write
 
      vector<Point3f> myVec;
-     TrivialSampler<MyMesh> ts(myVec);
-     SurfaceSampling<MyMesh, TrivialSampler<MyMesh> >::Montecarlo(M, ts, SampleNum);
+     SurfaceSampling<MyMesh, TrivialSampler<MyMesh> >::Montecarlo(M, TrivialSampler<MyMesh>(myVec), SampleNum);
 
 **/
 
@@ -71,9 +71,16 @@ template <class MeshType>
 class TrivialSampler
 {
 public:
+  typedef typename MeshType::ScalarType  ScalarType;
   typedef typename MeshType::CoordType  CoordType;
   typedef typename MeshType::VertexType VertexType;
+  typedef typename MeshType::EdgeType   EdgeType;
   typedef typename MeshType::FaceType   FaceType;
+
+  void reset()
+  {
+    sampleVec->clear();
+  }
 
   TrivialSampler()
   {
@@ -84,8 +91,8 @@ public:
   TrivialSampler(std::vector<CoordType> &Vec)
   {
     sampleVec = &Vec;
-    sampleVec->clear();
     vectorOwner=false;
+    reset();
   }
 
   ~TrivialSampler()
@@ -97,11 +104,21 @@ private:
   std::vector<CoordType> *sampleVec;
   bool vectorOwner;
 public:
+  
+  std::vector<CoordType> &SampleVec() 
+  {
+    return *sampleVec;
+  }
 
   void AddVert(const VertexType &p)
   {
     sampleVec->push_back(p.cP());
   }
+  void AddEdge(const EdgeType& e, ScalarType u ) // u==0 -> v(0) u==1 -> v(1);
+  {
+    sampleVec->push_back(e.cV(0)->cP()*(1.0-u)+e.cV(1)->cP()*u);
+  }
+
   void AddFace(const FaceType &f, const CoordType &p)
   {
     sampleVec->push_back(f.cP(0)*p[0] + f.cP(1)*p[1] +f.cP(2)*p[2] );
@@ -115,8 +132,44 @@ public:
   }
 }; // end class TrivialSampler
 
+template <class MeshType>
+class TrivialPointerSampler
+{
+public:
+  typedef typename MeshType::ScalarType  ScalarType;
+  typedef typename MeshType::CoordType  CoordType;
+  typedef typename MeshType::VertexType VertexType;
+  typedef typename MeshType::EdgeType EdgeType;
+  typedef typename MeshType::FaceType   FaceType;
 
+  TrivialPointerSampler() {}
+  ~TrivialPointerSampler()  {}
 
+  void reset()
+  {
+    sampleVec.clear();
+  }
+
+public:
+  std::vector<VertexType *> sampleVec;
+
+  void AddVert(VertexType &p)
+  {
+    sampleVec.push_back(&p);
+  }
+
+  void AddEdge(const EdgeType& e, ScalarType u ) // u==0 -> v(0) u==1 -> v(1);
+  {
+    if( u < 0.5 )
+      sampleVec.push_back(e.cV(0));
+    else 
+      sampleVec.push_back(e.cV(1));
+  }
+  
+  // This sampler should be used only for getting vertex pointers. Meaningless in other case.
+  void AddFace(const FaceType &, const CoordType &)   { assert(0); }
+  void AddTextureSample(const FaceType &, const CoordType &, const Point2i &, float ) { assert(0); }
+}; // end class TrivialSampler
 
 
 template <class MeshType>
@@ -127,8 +180,17 @@ public:
   typedef typename MeshType::FaceType    FaceType;
   typedef typename MeshType::CoordType   CoordType;
 
-  MeshSampler(MeshType &_m):m(_m){}
+  MeshSampler(MeshType &_m):m(_m){
+    perFaceNormal = false;
+  }
   MeshType &m;
+
+  bool perFaceNormal;  // default false; if true the sample normal is the face normal, otherwise it is interpolated
+
+  void reset()
+  {
+    m.Clear();
+  }
 
   void AddVert(const VertexType &p)
   {
@@ -140,12 +202,252 @@ public:
   {
     tri::Allocator<MeshType>::AddVertices(m,1);
     m.vert.back().P() = f.cP(0)*p[0] + f.cP(1)*p[1] +f.cP(2)*p[2];
-    m.vert.back().N() = f.cV(0)->N()*p[0] + f.cV(1)->N()*p[1] + f.cV(2)->N()*p[2];
+    if(perFaceNormal) m.vert.back().N() = f.cN();
+       else m.vert.back().N() = f.cV(0)->N()*p[0] + f.cV(1)->N()*p[1] + f.cV(2)->N()*p[2];
     if(tri::HasPerVertexQuality(m) )
        m.vert.back().Q() = f.cV(0)->Q()*p[0] + f.cV(1)->Q()*p[1] + f.cV(2)->Q()*p[2];
   }
-}; // end class BaseSampler
+}; // end class MeshSampler
 
+
+
+/* This sampler is used to perform compute the Hausdorff measuring.
+ * It keep internally the spatial indexing structure used to find the closest point
+ * and the partial integration results needed to compute the average and rms error values.
+ * Averaged values assume that the samples are equi-distributed (e.g. a good unbiased montecarlo sampling of the surface).
+ */
+template <class MeshType>
+class HausdorffSampler
+{
+  typedef typename MeshType::FaceType    FaceType;
+  typedef typename MeshType::VertexType    VertexType;
+  typedef typename MeshType::CoordType   CoordType;
+  typedef typename MeshType::ScalarType   ScalarType;
+  typedef GridStaticPtr<FaceType, ScalarType > MetroMeshFaceGrid;
+  typedef GridStaticPtr<VertexType, ScalarType > MetroMeshVertexGrid;
+
+public:
+
+  HausdorffSampler(MeshType* _m, MeshType* _sampleMesh=0, MeshType* _closestMesh=0 ) :markerFunctor(_m)
+  {
+    m=_m;
+    init(_sampleMesh,_closestMesh);
+  }
+
+  MeshType *m;           /// the mesh for which we search the closest points.
+  MeshType *samplePtMesh;  /// the mesh containing the sample points
+  MeshType *closestPtMesh; /// the mesh containing the corresponding closest points that have been found
+
+  MetroMeshVertexGrid   unifGridVert;
+  MetroMeshFaceGrid   unifGridFace;
+
+  // Parameters
+  double          min_dist;
+  double          max_dist;
+  double          mean_dist;
+  double          RMS_dist;   /// from the wikipedia defintion RMS DIST is sqrt(Sum(distances^2)/n), here we store Sum(distances^2)
+  double          volume;
+  double          area_S1;
+  Histogramf hist;
+  // globals parameters driving the samples.
+  int             n_total_samples;
+  int             n_samples;
+  bool useVertexSampling;
+  ScalarType dist_upper_bound;  // samples that have a distance beyond this threshold distance are not considered.
+  typedef typename tri::FaceTmark<MeshType> MarkerFace;
+  MarkerFace markerFunctor;
+
+
+  float getMeanDist() const { return mean_dist / n_total_samples; }
+  float getMinDist() const { return min_dist ; }
+  float getMaxDist() const { return max_dist ; }
+  float getRMSDist() const { return sqrt(RMS_dist / n_total_samples); }
+
+  void init(MeshType* _sampleMesh=0, MeshType* _closestMesh=0 )
+  {
+    samplePtMesh =_sampleMesh;
+    closestPtMesh = _closestMesh;
+    if(m)
+    {
+      tri::UpdateNormal<MeshType>::PerFaceNormalized(*m);
+      if(m->fn==0) useVertexSampling = true;
+      else useVertexSampling = false;
+
+      if(useVertexSampling) unifGridVert.Set(m->vert.begin(),m->vert.end());
+      else  unifGridFace.Set(m->face.begin(),m->face.end());
+      markerFunctor.SetMesh(m);
+      hist.SetRange(0.0, m->bbox.Diag()/100.0, 100);
+    }
+    min_dist = std::numeric_limits<double>::max();
+    max_dist = 0;
+    mean_dist =0;
+    RMS_dist = 0;
+    n_total_samples = 0;
+  }
+
+  void AddFace(const FaceType &f, CoordType interp)
+  {
+    CoordType startPt = f.cP(0)*interp[0] + f.cP(1)*interp[1] +f.cP(2)*interp[2]; // point to be sampled
+    CoordType startN  = f.cV(0)->cN()*interp[0] + f.cV(1)->cN()*interp[1] +f.cV(2)->cN()*interp[2]; // Normal of the interpolated point
+    AddSample(startPt,startN); // point to be sampled);
+  }
+
+  void AddVert(VertexType &p)
+  {
+    p.Q()=AddSample(p.cP(),p.cN());
+  }
+
+
+  float AddSample(const CoordType &startPt,const CoordType &startN)
+  {
+    // the results
+    CoordType       closestPt;
+    ScalarType dist = dist_upper_bound;
+
+    // compute distance between startPt and the mesh S2
+    FaceType   *nearestF=0;
+    VertexType   *nearestV=0;
+    vcg::face::PointDistanceBaseFunctor<ScalarType> PDistFunct;
+    dist=dist_upper_bound;
+    if(useVertexSampling)
+      nearestV =  tri::GetClosestVertex<MeshType,MetroMeshVertexGrid>(*m,unifGridVert,startPt,dist_upper_bound,dist);
+    else
+      nearestF =  unifGridFace.GetClosest(PDistFunct,markerFunctor,startPt,dist_upper_bound,dist,closestPt);
+
+    // update distance measures
+    if(dist == dist_upper_bound)
+      return dist;
+
+    if(dist > max_dist) max_dist = dist;        // L_inf
+    if(dist < min_dist) min_dist = dist;        // L_inf
+
+    mean_dist += dist;	        // L_1
+    RMS_dist  += dist*dist;     // L_2
+    n_total_samples++;
+
+    hist.Add((float)fabs(dist));
+    if(samplePtMesh)
+    {
+      tri::Allocator<MeshType>::AddVertices(*samplePtMesh,1);
+      samplePtMesh->vert.back().P() = startPt;
+      samplePtMesh->vert.back().Q() = dist;
+      samplePtMesh->vert.back().N() = startN;
+    }
+    if(closestPtMesh)
+    {
+      tri::Allocator<MeshType>::AddVertices(*closestPtMesh,1);
+      closestPtMesh->vert.back().P() = closestPt;
+      closestPtMesh->vert.back().Q() = dist;
+      closestPtMesh->vert.back().N() = startN;
+    }
+    return dist;
+  }
+}; // end class HausdorffSampler
+
+
+
+/* This sampler is used to transfer the detail of a mesh onto another one.
+ * It keep internally the spatial indexing structure used to find the closest point
+ */
+template <class MeshType>
+class RedetailSampler
+{
+  typedef typename MeshType::FaceType    FaceType;
+  typedef typename MeshType::VertexType    VertexType;
+  typedef typename MeshType::CoordType   CoordType;
+  typedef typename MeshType::ScalarType   ScalarType;  
+  typedef GridStaticPtr<FaceType, ScalarType > MetroMeshGrid;
+  typedef GridStaticPtr<VertexType, ScalarType > VertexMeshGrid;
+
+public:
+
+  RedetailSampler():m(0) {}
+
+  MeshType *m;           /// the source mesh for which we search the closest points (e.g. the mesh from which we take colors etc).
+  CallBackPos *cb;
+  int sampleNum;  // the expected number of samples. Used only for the callback
+  int sampleCnt;
+  MetroMeshGrid   unifGridFace;
+  VertexMeshGrid   unifGridVert;
+  bool useVertexSampling;
+
+  // Parameters
+  typedef tri::FaceTmark<MeshType> MarkerFace;
+  MarkerFace markerFunctor;
+
+  bool coordFlag;
+  bool colorFlag;
+  bool normalFlag;
+  bool qualityFlag;
+  bool selectionFlag;
+  bool storeDistanceAsQualityFlag;
+  float dist_upper_bound;
+  void init(MeshType *_m, CallBackPos *_cb=0, int targetSz=0)
+  {
+    coordFlag=false;
+    colorFlag=false;
+    qualityFlag=false;
+    selectionFlag=false;
+    storeDistanceAsQualityFlag=false;
+    m=_m;
+    tri::UpdateNormal<MeshType>::PerFaceNormalized(*m);
+    if(m->fn==0) useVertexSampling = true;
+    else useVertexSampling = false;
+
+    if(useVertexSampling) unifGridVert.Set(m->vert.begin(),m->vert.end());
+    else  unifGridFace.Set(m->face.begin(),m->face.end());
+    markerFunctor.SetMesh(m);
+    // sampleNum and sampleCnt are used only for the progress callback.
+    cb=_cb;
+    sampleNum = targetSz;
+    sampleCnt = 0;
+  }
+
+  // this function is called for each vertex of the target mesh.
+  // and retrieve the closest point on the source mesh.
+  void AddVert(VertexType &p)
+  {
+    assert(m);
+    // the results
+    CoordType       closestPt,      normf, bestq, ip;
+    ScalarType dist = dist_upper_bound;
+    const CoordType &startPt= p.cP();
+    // compute distance between startPt and the mesh S2
+    if(useVertexSampling)
+    {
+      VertexType   *nearestV=0;
+      nearestV =  tri::GetClosestVertex<MeshType,VertexMeshGrid>(*m,unifGridVert,startPt,dist_upper_bound,dist); //(PDistFunct,markerFunctor,startPt,dist_upper_bound,dist,closestPt);
+      if(cb) cb(sampleCnt++*100/sampleNum,"Resampling Vertex attributes");
+      if(storeDistanceAsQualityFlag)  p.Q() = dist;
+      if(dist == dist_upper_bound) return ;
+
+      if(coordFlag) p.P()=nearestV->P();
+      if(colorFlag) p.C() = nearestV->C();
+      if(normalFlag) p.N() = nearestV->N();
+      if(qualityFlag) p.Q()= nearestV->Q();
+      if(selectionFlag) if(nearestV->IsS()) p.SetS();
+    }
+    else
+    {
+      FaceType   *nearestF=0;
+      vcg::face::PointDistanceBaseFunctor<ScalarType> PDistFunct;
+      dist=dist_upper_bound;
+      if(cb) cb(sampleCnt++*100/sampleNum,"Resampling Vertex attributes");
+      nearestF =  unifGridFace.GetClosest(PDistFunct,markerFunctor,startPt,dist_upper_bound,dist,closestPt);
+      if(dist == dist_upper_bound) return ;
+
+      CoordType interp;
+      InterpolationParameters(*nearestF,(*nearestF).cN(),closestPt, interp);
+      interp[2]=1.0-interp[1]-interp[0];
+
+      if(coordFlag) p.P()=closestPt;
+      if(colorFlag) p.C().lerp(nearestF->V(0)->C(),nearestF->V(1)->C(),nearestF->V(2)->C(),interp);
+      if(normalFlag) p.N() = nearestF->V(0)->N()*interp[0] + nearestF->V(1)->N()*interp[1] + nearestF->V(2)->N()*interp[2];
+      if(qualityFlag) p.Q()= nearestF->V(0)->Q()*interp[0] + nearestF->V(1)->Q()*interp[1] + nearestF->V(2)->Q()*interp[2];
+      if(selectionFlag) if(nearestF->IsS()) p.SetS();
+    }
+  }
+}; // end class RedetailSampler
 
 
 
@@ -160,19 +462,21 @@ The class is templated over the PointSampler object that allows to customize the
 **/
 
 
-template <class MetroMesh, class VertexSampler = TrivialSampler< MetroMesh> >
+template <class MeshType, class VertexSampler = TrivialSampler< MeshType> >
 class SurfaceSampling
 {
-  typedef typename MetroMesh::CoordType       CoordType;
-  typedef typename MetroMesh::ScalarType      ScalarType;
-  typedef typename MetroMesh::VertexType      VertexType;
-  typedef typename MetroMesh::VertexPointer   VertexPointer;
-  typedef typename MetroMesh::VertexIterator  VertexIterator;
-  typedef typename MetroMesh::FacePointer     FacePointer;
-  typedef typename MetroMesh::FaceIterator    FaceIterator;
-  typedef typename MetroMesh::FaceType        FaceType;
-  typedef typename MetroMesh::FaceContainer   FaceContainer;
-  typedef typename vcg::Box3<ScalarType>      BoxType;
+  typedef typename MeshType::CoordType       CoordType;
+  typedef typename MeshType::BoxType         BoxType;
+  typedef typename MeshType::ScalarType      ScalarType;
+  typedef typename MeshType::VertexType      VertexType;
+  typedef typename MeshType::VertexPointer   VertexPointer;
+  typedef typename MeshType::VertexIterator  VertexIterator;
+  typedef typename MeshType::EdgeType        EdgeType;
+  typedef typename MeshType::EdgeIterator    EdgeIterator;
+  typedef typename MeshType::FaceType        FaceType;
+  typedef typename MeshType::FacePointer     FacePointer;
+  typedef typename MeshType::FaceIterator    FaceIterator;
+  typedef typename MeshType::FaceContainer   FaceContainer;
 
   typedef typename vcg::SpatialHashTable<FaceType, ScalarType> MeshSHT;
   typedef typename vcg::SpatialHashTable<FaceType, ScalarType>::CellIterator MeshSHTIterator;
@@ -180,6 +484,8 @@ class SurfaceSampling
   typedef typename vcg::SpatialHashTable<VertexType, ScalarType>::CellIterator MontecarloSHTIterator;
   typedef typename vcg::SpatialHashTable<VertexType, ScalarType> SampleSHT;
   typedef typename vcg::SpatialHashTable<VertexType, ScalarType>::CellIterator SampleSHTIterator;
+
+  typedef typename MeshType::template PerVertexAttributeHandle<float> PerVertexFloatAttribute;
 
 public:
 
@@ -190,10 +496,23 @@ static math::MarsenneTwisterRNG &SamplingRandomGenerator()
 }
 
 // Returns an integer random number in the [0,i-1] interval using the improve Marsenne-Twister method.
+// this functor is needed for passing it to the std functions.
 static unsigned int RandomInt(unsigned int i)
 {
-    return (SamplingRandomGenerator().generate(0) % i);
+    return (SamplingRandomGenerator().generate(i));
 }
+
+class MarsenneTwisterURBG
+{
+public:
+	typedef unsigned int result_type;
+	MarsenneTwisterURBG(result_type max){_max = max;}
+	static constexpr result_type min() {return 0;}
+	static constexpr result_type max() {return std::numeric_limits<result_type>::max();}
+	result_type operator()() {return SamplingRandomGenerator().generate(_max);}
+private:
+	result_type _max;
+};
 
 // Returns a random number in the [0,1) real interval using the improved Marsenne-Twister method.
 static double RandomDouble01()
@@ -317,16 +636,20 @@ static int Poisson(double lambda)
 }
 
 
-static void AllVertex(MetroMesh & m, VertexSampler &ps)
+static void AllVertex(MeshType & m, VertexSampler &ps)
 {
-    VertexIterator vi;
-    for(vi=m.vert.begin();vi!=m.vert.end();++vi)
-    {
-        if(!(*vi).IsD())
-        {
-            ps.AddVert(*vi);
-        }
-    }
+	AllVertex(m, ps, false);
+}
+
+static void AllVertex(MeshType & m, VertexSampler &ps, bool onlySelected)
+{
+	VertexIterator vi;
+	for(vi=m.vert.begin();vi!=m.vert.end();++vi)
+		if(!(*vi).IsD())
+			if ((!onlySelected) || ((*vi).IsS()))
+			{
+				ps.AddVert(*vi);
+			}
 }
 
 /// Sample the vertices in a weighted way. Each vertex has a probability of being chosen
@@ -337,7 +660,7 @@ static void AllVertex(MetroMesh & m, VertexSampler &ps)
 /// 2) shuffle vertices.
 /// 3) for each vertices choose it if rand > thr;
 
-static void VertexWeighted(MetroMesh & m, VertexSampler &ps, int sampleNum)
+static void VertexWeighted(MeshType & m, VertexSampler &ps, int sampleNum)
 {
     ScalarType qSum = 0;
     VertexIterator vi;
@@ -375,7 +698,7 @@ static void VertexWeighted(MetroMesh & m, VertexSampler &ps, int sampleNum)
 
 /// Sample the vertices in a uniform way. Each vertex has a probability of being chosen
 /// that is proportional to the area it represent.
-static void VertexAreaUniform(MetroMesh & m, VertexSampler &ps, int sampleNum)
+static void VertexAreaUniform(MeshType & m, VertexSampler &ps, int sampleNum)
 {
     VertexIterator vi;
     for(vi = m.vert.begin(); vi != m.vert.end(); ++vi)
@@ -395,71 +718,227 @@ static void VertexAreaUniform(MetroMesh & m, VertexSampler &ps, int sampleNum)
     VertexWeighted(m,ps,sampleNum);
 }
 
-static void	FillAndShuffleFacePointerVector(MetroMesh & m, std::vector<FacePointer> &faceVec)
+static void	FillAndShuffleFacePointerVector(MeshType & m, std::vector<FacePointer> &faceVec)
 {
-    FaceIterator fi;
-    for(fi=m.face.begin();fi!=m.face.end();++fi)
+    for(FaceIterator fi=m.face.begin();fi!=m.face.end();++fi)
         if(!(*fi).IsD())	faceVec.push_back(&*fi);
 
     assert((int)faceVec.size()==m.fn);
 
-    unsigned int (*p_myrandom)(unsigned int) = RandomInt;
-    std::random_shuffle(faceVec.begin(),faceVec.end(), p_myrandom);
+    //unsigned int (*p_myrandom)(unsigned int) = RandomInt;
+    //std::random_device rd;
+    //std::mt19937 g(rd());
+    MarsenneTwisterURBG g(faceVec.size());
+    std::shuffle(faceVec.begin(),faceVec.end(), g);
 }
-static void	FillAndShuffleVertexPointerVector(MetroMesh & m, std::vector<VertexPointer> &vertVec)
+static void	FillAndShuffleVertexPointerVector(MeshType & m, std::vector<VertexPointer> &vertVec)
 {
-    VertexIterator vi;
-    for(vi=m.vert.begin();vi!=m.vert.end();++vi)
+    for(VertexIterator vi=m.vert.begin();vi!=m.vert.end();++vi)
                 if(!(*vi).IsD())	vertVec.push_back(&*vi);
 
     assert((int)vertVec.size()==m.vn);
 
-    unsigned int (*p_myrandom)(unsigned int) = RandomInt;
-    std::random_shuffle(vertVec.begin(),vertVec.end(), p_myrandom);
+    //unsigned int (*p_myrandom)(unsigned int) = RandomInt;
+    //std::random_device rd;
+    //std::mt19937 g(rd());
+    MarsenneTwisterURBG g(vertVec.size());
+    std::shuffle(vertVec.begin(),vertVec.end(), g);
 }
 
 /// Sample the vertices in a uniform way. Each vertex has the same probabiltiy of being chosen.
-static void VertexUniform(MetroMesh & m, VertexSampler &ps, int sampleNum)
+static void VertexUniform(MeshType & m, VertexSampler &ps, int sampleNum, bool onlySelected)
 {
-    if(sampleNum>=m.vn) {
-      AllVertex(m,ps);
-        return;
-    }
+	if (sampleNum >= m.vn) {
+		AllVertex(m, ps, onlySelected);
+		return;
+	}
 
-    std::vector<VertexPointer> vertVec;
-    FillAndShuffleVertexPointerVector(m,vertVec);
+	std::vector<VertexPointer> vertVec;
+	FillAndShuffleVertexPointerVector(m, vertVec);
 
-    for(int i =0; i< sampleNum; ++i)
-        ps.AddVert(*vertVec[i]);
+	int added = 0;
+	for (int i = 0; ((i < m.vn) && (added < sampleNum)); ++i)
+		if (!(*vertVec[i]).IsD())
+			if ((!onlySelected) || (*vertVec[i]).IsS())
+			{
+				ps.AddVert(*vertVec[i]);
+				added++;
+			}
+		
 }
+
+
+static void VertexUniform(MeshType & m, VertexSampler &ps, int sampleNum)
+{
+	VertexUniform(m, ps, sampleNum, false);
+}
+
+
+///
+/// \brief The EdgeSamplingStrategy enum determines the sampling strategy for edge meshes.
+/// Given a sampling radius 'r', and the total length of the edge mesh 'L',
+/// the number of generated samples is: op(L/r) (+ 1 if the mesh is not a loop)
+/// where op is (floor | round | ceil)
+///
+enum EdgeSamplingStrategy
+{
+	Floor = 0,
+	Round,
+	Ceil,
+};
+
+/// Perform an uniform sampling over an EdgeMesh.
+///
+/// It assumes that the mesh is 1-manifold.
+/// each connected component is sampled in a independent way.
+/// For each component of length <L> we place on it floor(L/radius)+1 samples.
+/// (if conservative argument is false we place ceil(L/radius)+1 samples)
+///
+static void EdgeMeshUniform(MeshType &m, VertexSampler &ps, float radius, EdgeSamplingStrategy strategy = Floor)
+{
+	tri::RequireEEAdjacency(m);
+	tri::RequireCompactness(m);
+	tri::RequirePerEdgeFlags(m);
+	tri::RequirePerVertexFlags(m);
+	tri::UpdateTopology<MeshType>::EdgeEdge(m);
+	tri::UpdateFlags<MeshType>::EdgeClearV(m);
+	tri::MeshAssert<MeshType>::EEOneManifold(m);
+
+	for (EdgeIterator ei = m.edge.begin(); ei != m.edge.end(); ++ei)
+	{
+		if (!ei->IsV())
+		{
+			edge::Pos<EdgeType> ep(&*ei,0);
+			edge::Pos<EdgeType> startep = ep;
+			do // first loop to search a boundary component.
+			{
+				ep.NextE();
+				if (ep.IsBorder())
+					break;
+			} while (startep != ep);
+			if (!ep.IsBorder())
+			{
+				// it's a loop
+				assert(ep == startep);
+
+				// to keep the uniform resampling order-independent:
+				// 1) start from the 'lowest' point...
+				edge::Pos<EdgeType> altEp = ep;
+				altEp.NextE();
+				while (altEp != startep) {
+					if (altEp.V()->cP() < ep.V()->cP())
+					{
+						ep = altEp;
+					}
+					altEp.NextE();
+				}
+
+				// 2) ... with consistent direction
+				const auto dir0 = ep.VFlip()->cP() - ep.V()->cP();
+				ep.FlipE();
+				const auto dir1 = ep.VFlip()->cP() - ep.V()->cP();
+				if (dir0 < dir1)
+				{
+					ep.FlipE();
+				}
+			}
+			else
+			{
+				// not a loop
+
+				// to keep the uniform resampling order-independent
+				// start from the border with 'lowest' point
+				edge::Pos<EdgeType> altEp = ep;
+				do {
+					altEp.NextE();
+				} while (!altEp.IsBorder());
+
+				if (altEp.V()->cP() < ep.V()->cP())
+				{
+					ep = altEp;
+				}
+			}
+
+			ScalarType totalLen = 0;
+			ep.FlipV();
+			// second loop to compute the length of the chain.
+			do
+			{
+				ep.E()->SetV();
+				totalLen += Distance(ep.V()->cP(), ep.VFlip()->cP());
+				ep.NextE();
+			} while (!ep.E()->IsV() && !ep.IsBorder());
+			if (ep.IsBorder())
+			{
+				ep.E()->SetV();
+				totalLen += Distance(ep.V()->cP(), ep.VFlip()->cP());
+			}
+
+			VertexPointer startVertex = ep.V();
+
+			// Third loop actually performs the sampling.
+			int sampleNum = -1;
+			{
+				double div = double(totalLen) / radius;
+				switch (strategy) {
+				case Round:
+					sampleNum = int(round(div));
+					break;
+				case Ceil:
+					sampleNum = int(ceil(div));
+					break;
+				default: // Floor
+					sampleNum = int(floor(div));
+					break;
+				};
+			}
+			assert(sampleNum >= 0);
+
+			ScalarType sampleDist = totalLen / sampleNum;
+//			printf("Found a chain of %f with %i samples every %f (%f)\n", totalLen, sampleNum, sampleDist, radius);
+
+			ScalarType curLen = 0;
+			int sampleCnt     = 1;
+			ps.AddEdge(*(ep.E()), ep.VInd() == 0 ? 0.0 : 1.0);
+
+			do {
+				ep.NextE();
+				assert(ep.E()->IsV());
+				ScalarType edgeLen = Distance(ep.VFlip()->cP(), ep.V()->cP());
+				ScalarType d0      = curLen;
+				ScalarType d1      = d0 + edgeLen;
+
+				while (d1 > sampleCnt * sampleDist && sampleCnt < sampleNum)
+				{
+					ScalarType off = (sampleCnt * sampleDist - d0) / edgeLen;
+//					printf("edgeLen %f off %f samplecnt %i\n", edgeLen, off, sampleCnt);
+					ps.AddEdge(*(ep.E()), ep.VInd() == 0 ? 1.0 - off : off);
+					sampleCnt++;
+				}
+				curLen += edgeLen;
+			} while(!ep.IsBorder() && ep.V() != startVertex);
+
+			if(ep.V() != startVertex)
+			{
+				ps.AddEdge(*(ep.E()), ep.VInd() == 0 ? 0.0 : 1.0);
+			}
+		}
+	}
+}
+
 
 /// \brief Sample all the border corner vertices
 ///
 /// It assumes that the border flag have been set over the mesh both for vertex and for faces.
-/// All the vertices on the border where the surface forms an angle smaller than the given threshold are sampled.
-///
-static void VertexBorderCorner(MetroMesh & m, VertexSampler &ps, float angleRad)
+/// All the vertices on the border where the edges of the boundary of the surface forms an angle smaller than the given threshold are sampled.
+/// It assumes that the Per-Vertex border Flag has been set.
+static void VertexBorderCorner(MeshType & m, VertexSampler &ps, ScalarType angleRad)
 {
-  typename MetroMesh::template PerVertexAttributeHandle  <float> angleSumH = tri::Allocator<MetroMesh>:: template GetPerVertexAttribute<float> (m);
-
-  for(VertexIterator vi=m.vert.begin();vi!=m.vert.end();++vi)
-    angleSumH[vi]=0;
-
-  for(FaceIterator fi=m.face.begin();fi!=m.face.end();++fi)
-  {
-    for(int i=0;i<3;++i)
+    vcg::tri::UpdateSelection<MeshType>::VertexCornerBorder(m,angleRad);
+    for(VertexIterator vi=m.vert.begin();vi!=m.vert.end();++vi)
     {
-      angleSumH[fi->V(i)] += vcg::Angle(fi->P2(i) - fi->P0(i),fi->P1(i) - fi->P0(i));
+      if(vi->IsS()) ps.AddVert(*vi);
     }
-  }
-
-  for(VertexIterator vi=m.vert.begin();vi!=m.vert.end();++vi)
-  {
-    if(angleSumH[vi]<angleRad && vi->IsB())
-        ps.AddVert(*vi);
-  }
-
-  tri::Allocator<MetroMesh>:: template DeletePerVertexAttribute<float> (m,angleSumH);
 }
 
 /// \brief Sample all the border vertices
@@ -467,7 +946,7 @@ static void VertexBorderCorner(MetroMesh & m, VertexSampler &ps, float angleRad)
 /// It assumes that the border flag have been set over the mesh.
 /// All the vertices on the border are sampled.
 ///
-static void VertexBorder(MetroMesh & m, VertexSampler &ps)
+static void VertexBorder(MeshType & m, VertexSampler &ps)
 {
   VertexBorderCorner(m,ps,std::numeric_limits<ScalarType>::max());
 }
@@ -478,14 +957,14 @@ static void VertexBorder(MetroMesh & m, VertexSampler &ps)
 /// tri::UpdateFlags<MeshType>::FaceFauxCrease(mesh,creaseAngleRad);
 /// Then it chooses all the vertices where there are at least three non faux edges.
 ///
-static void VertexCrease(MetroMesh & m, VertexSampler &ps)
+static void VertexCrease(MeshType & m, VertexSampler &ps)
 {
-  typedef typename UpdateTopology<MetroMesh>::PEdge SimpleEdge;
+  typedef typename UpdateTopology<MeshType>::PEdge SimpleEdge;
   std::vector< SimpleEdge > Edges;
   typename std::vector< SimpleEdge >::iterator ei;
-  UpdateTopology<MetroMesh>::FillUniqueEdgeVector(m,Edges,false);
+  UpdateTopology<MeshType>::FillUniqueEdgeVector(m,Edges,false);
 
-  typename MetroMesh::template PerVertexAttributeHandle  <int> hv = tri::Allocator<MetroMesh>:: template GetPerVertexAttribute<int> (m);
+  typename MeshType::template PerVertexAttributeHandle  <int> hv = tri::Allocator<MeshType>:: template GetPerVertexAttribute<int> (m);
 
   for(ei=Edges.begin(); ei!=Edges.end(); ++ei)
   {
@@ -501,7 +980,7 @@ static void VertexCrease(MetroMesh & m, VertexSampler &ps)
 }
 
 
-static void FaceUniform(MetroMesh & m, VertexSampler &ps, int sampleNum)
+static void FaceUniform(MeshType & m, VertexSampler &ps, int sampleNum)
 {
     if(sampleNum>=m.fn) {
       AllFace(m,ps);
@@ -515,7 +994,7 @@ static void FaceUniform(MetroMesh & m, VertexSampler &ps, int sampleNum)
         ps.AddFace(*faceVec[i],Barycenter(*faceVec[i]));
 }
 
-static void AllFace(MetroMesh & m, VertexSampler &ps)
+static void AllFace(MeshType & m, VertexSampler &ps)
 {
     FaceIterator fi;
     for(fi=m.face.begin();fi!=m.face.end();++fi)
@@ -526,13 +1005,13 @@ static void AllFace(MetroMesh & m, VertexSampler &ps)
 }
 
 
-static void AllEdge(MetroMesh & m, VertexSampler &ps)
+static void AllEdge(MeshType & m, VertexSampler &ps)
 {
   // Edge sampling.
-  typedef typename UpdateTopology<MetroMesh>::PEdge SimpleEdge;
+  typedef typename UpdateTopology<MeshType>::PEdge SimpleEdge;
   std::vector< SimpleEdge > Edges;
   typename std::vector< SimpleEdge >::iterator ei;
-  UpdateTopology<MetroMesh>::FillUniqueEdgeVector(m,Edges);
+  UpdateTopology<MeshType>::FillUniqueEdgeVector(m,Edges);
 
   for(ei=Edges.begin(); ei!=Edges.end(); ++ei)
     ps.AddFace(*(*ei).f,ei->EdgeBarycentricToFaceBarycentric(0.5));
@@ -540,35 +1019,36 @@ static void AllEdge(MetroMesh & m, VertexSampler &ps)
 
 // Regular Uniform Edge sampling
 // Each edge is subdivided in a number of pieces proprtional to its length
-// Sample are choosen without touching the vertices.
+// Samples are chosen without touching the vertices.
 
-static void EdgeUniform(MetroMesh & m, VertexSampler &ps,int sampleNum, bool sampleFauxEdge=true)
+static void EdgeUniform(MeshType & m, VertexSampler &ps,int sampleNum, bool sampleFauxEdge=true)
 {
-        typedef typename UpdateTopology<MetroMesh>::PEdge SimpleEdge;
-        std::vector< SimpleEdge > Edges;
-    UpdateTopology<MetroMesh>::FillUniqueEdgeVector(m,Edges,sampleFauxEdge);
-        // First loop compute total edge length;
-        float edgeSum=0;
-        typename std::vector< SimpleEdge >::iterator ei;
-        for(ei=Edges.begin(); ei!=Edges.end(); ++ei)
-                    edgeSum+=Distance((*ei).v[0]->P(),(*ei).v[1]->P());
+  typedef typename UpdateTopology<MeshType>::PEdge SimpleEdge;
 
-        float sampleLen = edgeSum/sampleNum;
-        float rest=0;
-        for(ei=Edges.begin(); ei!=Edges.end(); ++ei)
-                {
-                    float len = Distance((*ei).v[0]->P(),(*ei).v[1]->P());
-                    float samplePerEdge = floor((len+rest)/sampleLen);
-                    rest = (len+rest) - samplePerEdge * sampleLen;
-                    float step = 1.0/(samplePerEdge+1);
-                    for(int i=0;i<samplePerEdge;++i)
-                    {
-                        Point3f interp(0,0,0);
-                        interp[ (*ei).z     ]=step*(i+1);
-                        interp[((*ei).z+1)%3]=1.0-step*(i+1);
-                        ps.AddFace(*(*ei).f,interp);
-                    }
-                }
+  std::vector< SimpleEdge > Edges;
+  UpdateTopology<MeshType>::FillUniqueEdgeVector(m,Edges,sampleFauxEdge);
+  // First loop compute total edge length;
+  float edgeSum=0;
+  typename std::vector< SimpleEdge >::iterator ei;
+  for(ei=Edges.begin(); ei!=Edges.end(); ++ei)
+    edgeSum+=Distance((*ei).v[0]->P(),(*ei).v[1]->P());
+
+  float sampleLen = edgeSum/sampleNum;
+  float rest=0;
+  for(ei=Edges.begin(); ei!=Edges.end(); ++ei)
+  {
+    float len = Distance((*ei).v[0]->P(),(*ei).v[1]->P());
+    float samplePerEdge = floor((len+rest)/sampleLen);
+    rest = (len+rest) - samplePerEdge * sampleLen;
+    float step = 1.0/(samplePerEdge+1);
+    for(int i=0;i<samplePerEdge;++i)
+    {
+      CoordType interp(0,0,0);
+      interp[ (*ei).z     ]=step*(i+1);
+      interp[((*ei).z+1)%3]=1.0-step*(i+1);
+      ps.AddFace(*(*ei).f,interp);
+    }
+  }
 }
 
 // Generate the barycentric coords of a random point over a single face,
@@ -586,9 +1066,9 @@ static CoordType RandomPointInTriangle(const FaceType &f)
     return f.cP(0)*u[0] + f.cP(1)*u[1] + f.cP(2)*u[2];
 }
 
-static void StratifiedMontecarlo(MetroMesh & m, VertexSampler &ps,int sampleNum)
+static void StratifiedMontecarlo(MeshType & m, VertexSampler &ps,int sampleNum)
 {
-    ScalarType area = Stat<MetroMesh>::ComputeMeshArea(m);
+    ScalarType area = Stat<MeshType>::ComputeMeshArea(m);
     ScalarType samplePerAreaUnit = sampleNum/area;
     // Montecarlo sampling.
     double  floatSampleNum = 0.0;
@@ -622,9 +1102,9 @@ static void StratifiedMontecarlo(MetroMesh & m, VertexSampler &ps,int sampleNum)
 
   */
 
-static void MontecarloPoisson(MetroMesh & m, VertexSampler &ps,int sampleNum)
+static void MontecarloPoisson(MeshType & m, VertexSampler &ps,int sampleNum)
 {
-  ScalarType area = Stat<MetroMesh>::ComputeMeshArea(m);
+  ScalarType area = Stat<MeshType>::ComputeMeshArea(m);
   ScalarType samplePerAreaUnit = sampleNum/area;
 
   FaceIterator fi;
@@ -648,11 +1128,11 @@ static void MontecarloPoisson(MetroMesh & m, VertexSampler &ps,int sampleNum)
   and actually shooting sample over this line
   */
 
-static void EdgeMontecarlo(MetroMesh & m, VertexSampler &ps, int sampleNum, bool sampleAllEdges)
+static void EdgeMontecarlo(MeshType & m, VertexSampler &ps, int sampleNum, bool sampleAllEdges)
 {
-  typedef typename UpdateTopology<MetroMesh>::PEdge SimpleEdge;
+  typedef typename UpdateTopology<MeshType>::PEdge SimpleEdge;
   std::vector< SimpleEdge > Edges;
-  UpdateTopology<MetroMesh>::FillUniqueEdgeVector(m,Edges,sampleAllEdges);
+  UpdateTopology<MeshType>::FillUniqueEdgeVector(m,Edges,sampleAllEdges);
 
   assert(!Edges.empty());
 
@@ -689,7 +1169,7 @@ static void EdgeMontecarlo(MetroMesh & m, VertexSampler &ps, int sampleNum, bool
   and actually shooting sample over this line
   */
 
-static void Montecarlo(MetroMesh & m, VertexSampler &ps,int sampleNum)
+static void Montecarlo(MeshType & m, VertexSampler &ps,int sampleNum)
 {
     typedef  std::pair<ScalarType, FacePointer> IntervalType;
     std::vector< IntervalType > intervals (m.fn+1);
@@ -718,40 +1198,45 @@ static void Montecarlo(MetroMesh & m, VertexSampler &ps,int sampleNum)
         }
 }
 
-static ScalarType WeightedArea(FaceType f)
+static ScalarType WeightedArea(FaceType &f, PerVertexFloatAttribute &wH)
 {
-    ScalarType averageQ = ( f.V(0)->Q() + f.V(1)->Q() + f.V(2)->Q() ) /3.0;
-    return DoubleArea(f)*averageQ/2.0;
+    ScalarType averageQ = ( wH[f.V(0)] + wH[f.V(1)] + wH[f.V(2)] )/3.0;
+    return averageQ*averageQ*DoubleArea(f)/2.0;
 }
 
-/// Compute a sampling of the surface that is weighted by the quality
-/// the area of each face is multiplied by the average of the quality of the vertices.
-/// So the a face with a zero quality on all its vertices is never sampled and a face with average quality 2 get twice the samples of a face with the same area but with an average quality of 1;
-static void WeightedMontecarlo(MetroMesh & m, VertexSampler &ps, int sampleNum)
+/// Compute a sampling of the surface that is weighted by the quality and a variance
+///
+/// We use the quality as linear distortion of density.
+/// We consider each triangle as scaled between 1 and 1/variance linearly according quality.
+///
+/// In practice with variance 2 the average distance between sample will double where the quality is maxima.
+/// If you have two same area region A with q==-1 and B with q==1, if variance==2 the A will have 4 times more samples than B
+///
+static void WeightedMontecarlo(MeshType & m, VertexSampler &ps,int sampleNum, float variance)
 {
-    assert(tri::HasPerVertexQuality(m));
+  tri::RequirePerVertexQuality(m);
+  tri::RequireCompactness(m);
+  PerVertexFloatAttribute rH = tri::Allocator<MeshType>:: template GetPerVertexAttribute<float> (m,"radius");
+  InitRadiusHandleFromQuality(m, rH, 1.0, variance, true);
 
-    ScalarType weightedArea = 0;
-    FaceIterator fi;
-    for(fi = m.face.begin(); fi != m.face.end(); ++fi)
-            if(!(*fi).IsD())
-                        weightedArea += WeightedArea(*fi);
+  ScalarType weightedArea = 0;
+  for(FaceIterator fi = m.face.begin(); fi != m.face.end(); ++fi)
+      weightedArea += WeightedArea(*fi,rH);
 
-    ScalarType samplePerAreaUnit = sampleNum/weightedArea;
-    // Montecarlo sampling.
-    double  floatSampleNum = 0.0;
-    for(fi=m.face.begin(); fi != m.face.end(); fi++)
-        if(!(*fi).IsD())
+  ScalarType samplePerAreaUnit = sampleNum/weightedArea;
+  // Montecarlo sampling.
+  double  floatSampleNum = 0.0;
+  for(FaceIterator fi=m.face.begin(); fi != m.face.end(); fi++)
     {
-            // compute # samples in the current face (taking into account of the remainders)
-            floatSampleNum += WeightedArea(*fi) * samplePerAreaUnit;
-            int faceSampleNum   = (int) floatSampleNum;
+      // compute # samples in the current face (taking into account of the remainders)
+      floatSampleNum += WeightedArea(*fi,rH) * samplePerAreaUnit;
+      int faceSampleNum   = (int) floatSampleNum;
 
-            // for every sample p_i in T...
-            for(int i=0; i < faceSampleNum; i++)
-                    ps.AddFace(*fi,RandomBarycentric());
+      // for every sample p_i in T...
+      for(int i=0; i < faceSampleNum; i++)
+        ps.AddFace(*fi,RandomBarycentric());
 
-            floatSampleNum -= (double) faceSampleNum;
+      floatSampleNum -= (double) faceSampleNum;
     }
 }
 
@@ -819,14 +1304,14 @@ static int SingleFaceSubdivision(int sampleNum, const CoordType & v0, const Coor
 
 
 /// Compute a sampling of the surface where the points are regularly scattered over the face surface using a recursive longest-edge subdivision rule.
-static void FaceSubdivision(MetroMesh & m, VertexSampler &ps,int sampleNum, bool randSample)
+static void FaceSubdivision(MeshType & m, VertexSampler &ps,int sampleNum, bool randSample)
 {
 
-    ScalarType area = Stat<MetroMesh>::ComputeMeshArea(m);
+    ScalarType area = Stat<MeshType>::ComputeMeshArea(m);
     ScalarType samplePerAreaUnit = sampleNum/area;
     std::vector<FacePointer> faceVec;
     FillAndShuffleFacePointerVector(m,faceVec);
-    vcg::tri::UpdateNormal<MetroMesh>::PerFaceNormalized(m);
+    vcg::tri::UpdateNormal<MeshType>::PerFaceNormalized(m);
     double  floatSampleNum = 0.0;
     int faceSampleNum;
     // Subdivision sampling.
@@ -910,14 +1395,14 @@ static int SingleFaceSubdivisionOld(int sampleNum, const CoordType & v0, const C
 
 
 /// Compute a sampling of the surface where the points are regularly scattered over the face surface using a recursive longest-edge subdivision rule.
-static void FaceSubdivisionOld(MetroMesh & m, VertexSampler &ps,int sampleNum, bool randSample)
+static void FaceSubdivisionOld(MeshType & m, VertexSampler &ps,int sampleNum, bool randSample)
 {
 
-    ScalarType area = Stat<MetroMesh>::ComputeMeshArea(m);
+    ScalarType area = Stat<MeshType>::ComputeMeshArea(m);
     ScalarType samplePerAreaUnit = sampleNum/area;
     std::vector<FacePointer> faceVec;
     FillAndShuffleFacePointerVector(m,faceVec);
-    tri::UpdateNormal<MetroMesh>::PerFaceNormalized(m);
+    tri::UpdateNormal<MeshType>::PerFaceNormalized(m);
     double  floatSampleNum = 0.0;
     int faceSampleNum;
     // Subdivision sampling.
@@ -1017,11 +1502,11 @@ static int SingleFaceSimilarDual(FacePointer fp, VertexSampler &ps, int n_sample
 
 
 
-//template <class MetroMesh>
-//void Sampling<MetroMesh>::SimilarFaceSampling()
-static void FaceSimilar(MetroMesh & m, VertexSampler &ps,int sampleNum, bool dualFlag, bool randomFlag)
+//template <class MeshType>
+//void Sampling<MeshType>::SimilarFaceSampling()
+static void FaceSimilar(MeshType & m, VertexSampler &ps,int sampleNum, bool dualFlag, bool randomFlag)
 {
-        ScalarType area = Stat<MetroMesh>::ComputeMeshArea(m);
+        ScalarType area = Stat<MeshType>::ComputeMeshArea(m);
         ScalarType samplePerAreaUnit = sampleNum/area;
 
         // Similar Triangles sampling.
@@ -1060,13 +1545,13 @@ static void FaceSimilar(MetroMesh & m, VertexSampler &ps,int sampleNum, bool dua
 // This function does rasterization with a safety buffer area, thus accounting some points actually outside triangle area
 // The safety area samples are generated according to face flag BORDER which should be true for texture space border edges
 // Use correctSafePointsBaryCoords = true to map safety texels to closest point barycentric coords (on edge).
-    static void SingleFaceRaster(typename MetroMesh::FaceType &f,  VertexSampler &ps,
-                            const Point2<typename MetroMesh::ScalarType> & v0,
-                            const Point2<typename MetroMesh::ScalarType> & v1,
-                            const Point2<typename MetroMesh::ScalarType> & v2,
+    static void SingleFaceRaster(typename MeshType::FaceType &f,  VertexSampler &ps,
+                            const Point2<typename MeshType::ScalarType> & v0,
+                            const Point2<typename MeshType::ScalarType> & v1,
+                            const Point2<typename MeshType::ScalarType> & v2,
                             bool correctSafePointsBaryCoords=true)
     {
-    typedef typename MetroMesh::ScalarType S;
+    typedef typename MeshType::ScalarType S;
     // Calcolo bounding box
     Box2i bbox;
     Box2<S> bboxf;
@@ -1132,7 +1617,7 @@ static void FaceSimilar(MetroMesh & m, VertexSampler &ps,int sampleNum, bool dua
         {
             if( ((n[0]>=0 && n[1]>=0 && n[2]>=0) || (n[0]<=0 && n[1]<=0 && n[2]<=0))  && (de != 0))
             {
-                typename MetroMesh::CoordType baryCoord;
+                typename MeshType::CoordType baryCoord;
                 baryCoord[0] =  double(-y*v1[0]+v2[0]*y+v1[1]*x-v2[0]*v1[1]+v1[0]*v2[1]-x*v2[1])/de;
                 baryCoord[1] = -double( x*v0[1]-x*v2[1]-v0[0]*y+v0[0]*v2[1]-v2[0]*v0[1]+v2[0]*y)/de;
                 baryCoord[2] = 1-baryCoord[0]-baryCoord[1];
@@ -1171,7 +1656,7 @@ static void FaceSimilar(MetroMesh & m, VertexSampler &ps,int sampleNum, bool dua
 
                 if (closeEdge >= 0)
                 {
-                    typename MetroMesh::CoordType baryCoord;
+                    typename MeshType::CoordType baryCoord;
                     if (correctSafePointsBaryCoords)
                     {
                         // Add x,y sample with closePoint barycentric coords (on edge)
@@ -1203,7 +1688,7 @@ static bool checkPoissonDisk(SampleSHT & sht, const Point3<ScalarType> & p, Scal
 {
     // get the samples closest to the given one
     std::vector<VertexType*> closests;
-  typedef VertTmark<MetroMesh> MarkerVert;
+  typedef EmptyTMark<MeshType> MarkerVert;
   static MarkerVert mv;
 
     Box3f bb(p-Point3f(radius,radius,radius),p+Point3f(radius,radius,radius));
@@ -1230,7 +1715,7 @@ struct PoissonDiskParam
     preGenFlag = false;
     preGenMesh = NULL;
     geodesicDistanceFlag = false;
-    pds=NULL;
+    randomSeed = 0;
   }
 
   struct Stat
@@ -1241,7 +1726,7 @@ struct PoissonDiskParam
     int totalTime;
     Point3i gridSize;
     int gridCellNum;
-    int sampleNum;
+    size_t sampleNum;
     int montecarloSampleNum;
   };
 
@@ -1251,11 +1736,14 @@ struct PoissonDiskParam
   bool adaptiveRadiusFlag;
   float radiusVariance;
   bool invertQuality;
-  bool preGenFlag;        // when generating a poisson distribution, you can initialize the set of computed points with ALL the vertices of another mesh. Useful for building progressive refinements.
-  MetroMesh *preGenMesh;
+  bool preGenFlag;            // when generating a poisson distribution, you can initialize the set of computed points with
+                              // ALL the vertices of another mesh. Useful for building progressive//prioritize refinements.
+  MeshType *preGenMesh;      // There are two ways of passing the pregen vertexes to the pruning, 1) is with a mesh pointer
+                              // 2) with a per vertex attribute.
   int MAXLEVELS;
+  int randomSeed;
 
-  Stat *pds;
+  Stat pds;
 };
 
 
@@ -1293,10 +1781,11 @@ static VertexPointer getBestPrecomputedMontecarloSample(Point3i &cell, Montecarl
   return bestSample;
 }
 
-
-static ScalarType ComputePoissonDiskRadius(MetroMesh &origMesh, int sampleNum)
+/// \brief Estimate the radius r that you should give to get a certain number of samples in a Poissson Disk Distribution of radius r.
+///
+static ScalarType ComputePoissonDiskRadius(MeshType &origMesh, int sampleNum)
 {
-    ScalarType meshArea = Stat<MetroMesh>::ComputeMeshArea(origMesh);
+    ScalarType meshArea = Stat<MeshType>::ComputeMeshArea(origMesh);
     // Manage approximately the PointCloud Case, use the half a area of the bbox.
     // TODO: If you had the radius a much better approximation could be done.
     if(meshArea ==0)
@@ -1309,29 +1798,31 @@ static ScalarType ComputePoissonDiskRadius(MetroMesh &origMesh, int sampleNum)
     return diskRadius;
 }
 
-static int ComputePoissonSampleNum(MetroMesh &origMesh, ScalarType diskRadius)
+static int ComputePoissonSampleNum(MeshType &origMesh, ScalarType diskRadius)
 {
-    ScalarType meshArea = Stat<MetroMesh>::ComputeMeshArea(origMesh);
+    ScalarType meshArea = Stat<MeshType>::ComputeMeshArea(origMesh);
     int sampleNum = meshArea /  (diskRadius*diskRadius *M_PI *0.7)  ; // 0.7 is a density factor
     return sampleNum;
 }
 
-// Note that this function actually CHANGE the quality of the montecarlo samples so that it represents the expected radius of each sample
-// the expected radius of the sample is computed so that it linearly maps the quality between diskradius / variance and diskradius*variance
+/// When performing an adptive pruning for each sample we expect a varying radius to be removed.
+/// The radius is a PerVertex attribute that we compute from the current quality
+///
+/// the expected radius of the sample is computed so that
+/// it linearly maps the quality between diskradius and diskradius*variance
+/// in other words the radius
 
-static void ComputePoissonSampleRadii(MetroMesh &sampleMesh, ScalarType diskRadius, ScalarType radiusVariance, bool invert)
+static void InitRadiusHandleFromQuality(MeshType &sampleMesh, PerVertexFloatAttribute &rH, ScalarType diskRadius, ScalarType radiusVariance, bool invert)
 {
-    VertexIterator vi;
-    std::pair<float,float> minmax = tri::Stat<MetroMesh>::ComputePerVertexQualityMinMax( sampleMesh);
-    float minRad = diskRadius / radiusVariance;
-    float maxRad = diskRadius * radiusVariance;
-    float deltaQ = minmax.second-minmax.first;
-    float deltaRad = maxRad-minRad;
-    for (vi = sampleMesh.vert.begin(); vi != sampleMesh.vert.end(); vi++)
-        if(!(*vi).IsD())
-        {
-         (*vi).Q() = minRad + deltaRad*((invert ? minmax.second - (*vi).Q() : (*vi).Q() - minmax.first )/deltaQ);
-        }
+  std::pair<float,float> minmax = tri::Stat<MeshType>::ComputePerVertexQualityMinMax( sampleMesh);
+  float minRad = diskRadius ;
+  float maxRad = diskRadius * radiusVariance;
+  float deltaQ = minmax.second-minmax.first;
+  float deltaRad = maxRad-minRad;
+  for (VertexIterator vi = sampleMesh.vert.begin(); vi != sampleMesh.vert.end(); vi++)
+    {
+      rH[*vi] = minRad + deltaRad*((invert ? minmax.second - (*vi).Q() : (*vi).Q() - minmax.first )/deltaQ);
+    }
 }
 
 // initialize spatial hash table for searching
@@ -1339,8 +1830,8 @@ static void ComputePoissonSampleRadii(MetroMesh &sampleMesh, ScalarType diskRadi
 // This radius implies that when we pick a sample in a cell all that cell probably will not be touched again.
 // Howvever we must ensure that we do not put too many vertices inside each hash cell
 
-static void InitSpatialHashTable(MetroMesh &montecarloMesh, MontecarloSHT &montecarloSHT, ScalarType diskRadius,
-                                 const struct PoissonDiskParam pp=PoissonDiskParam())
+static void InitSpatialHashTable(MeshType &montecarloMesh, MontecarloSHT &montecarloSHT, ScalarType diskRadius,
+                                 struct PoissonDiskParam pp=PoissonDiskParam())
 {
   ScalarType cellsize = 2.0f* diskRadius / sqrt(3.0);
   float occupancyRatio=0;
@@ -1351,62 +1842,144 @@ static void InitSpatialHashTable(MetroMesh &montecarloMesh, MontecarloSHT &monte
     assert(!bb.IsNull());
     bb.Offset(cellsize);
 
-    int sizeX = std::max(1.0f,bb.DimX() / cellsize);
-    int sizeY = std::max(1.0f,bb.DimY() / cellsize);
-    int sizeZ = std::max(1.0f,bb.DimZ() / cellsize);
+    int sizeX = std::max(1,int(bb.DimX() / cellsize));
+    int sizeY = std::max(1,int(bb.DimY() / cellsize));
+    int sizeZ = std::max(1,int(bb.DimZ() / cellsize));
     Point3i gridsize(sizeX, sizeY, sizeZ);
 
     montecarloSHT.InitEmpty(bb, gridsize);
 
     for (VertexIterator vi = montecarloMesh.vert.begin(); vi != montecarloMesh.vert.end(); vi++)
-        if(!(*vi).IsD())
-        {
-          montecarloSHT.Add(&(*vi));
-        }
+      if(!(*vi).IsD())
+      {
+        montecarloSHT.Add(&(*vi));
+      }
 
     montecarloSHT.UpdateAllocatedCells();
-    if(pp.pds)
-    {
-      pp.pds->gridSize = gridsize;
-      pp.pds->gridCellNum = (int)montecarloSHT.AllocatedCells.size();
-    }
+    pp.pds.gridSize = gridsize;
+    pp.pds.gridCellNum = (int)montecarloSHT.AllocatedCells.size();
     cellsize/=2.0f;
     occupancyRatio = float(montecarloMesh.vn) / float(montecarloSHT.AllocatedCells.size());
-//    qDebug(" %i / %i = %6.3f", montecarloMesh.vn , montecarloSHT.AllocatedCells.size(),occupancyRatio);
+    //    qDebug(" %i / %i = %6.3f", montecarloMesh.vn , montecarloSHT.AllocatedCells.size(),occupancyRatio);
   }
   while( occupancyRatio> 100);
 }
 
-// Trivial approach that puts all the samples in a UG and removes all the ones that surely do not fit the
-static void PoissonDiskPruning(VertexSampler &ps, MetroMesh &montecarloMesh,
-                               ScalarType diskRadius, const struct PoissonDiskParam pp=PoissonDiskParam())
+static void PoissonDiskPruningByNumber(VertexSampler &ps, MeshType &m,
+                                       size_t sampleNum, ScalarType &diskRadius,
+                                       PoissonDiskParam &pp,
+                                       float tolerance=0.04,
+                                       int maxIter=20)
+
 {
-    int t0 = clock();
+  size_t sampleNumMin = int(float(sampleNum)*(1.0f-tolerance));
+  size_t sampleNumMax = int(float(sampleNum)*(1.0f+tolerance));
+  float RangeMinRad = m.bbox.Diag()/50.0;
+  float RangeMaxRad = m.bbox.Diag()/50.0;
+  size_t RangeMinRadNum;
+  size_t RangeMaxRadNum;
+   // Note     RangeMinRad          <       RangeMaxRad
+  //  but      RangeMinRadNum > sampleNum > RangeMaxRadNum
+  do {
+    ps.reset();
+    RangeMinRad/=2.0f;
+    PoissonDiskPruning(ps, m ,RangeMinRad,pp);
+    RangeMinRadNum = pp.pds.sampleNum;
+//    qDebug("PoissonDiskPruning Iteratin Min (%6.3f:%5i) instead of %i",RangeMinRad,RangeMinRadNum,sampleNum);
+  } while(RangeMinRadNum < sampleNum); // if the number of sample is still smaller you have to make radius larger.
+
+  do {
+    ps.reset();
+    RangeMaxRad*=2.0f;
+    PoissonDiskPruning(ps, m ,RangeMaxRad,pp);
+    RangeMaxRadNum =  pp.pds.sampleNum;
+//    qDebug("PoissonDiskPruning Iteratin Max (%6.3f:%5i) instead of %i",RangeMaxRad,RangeMaxRadNum,sampleNum);
+  } while(RangeMaxRadNum > sampleNum);
+
+
+  float curRadius=RangeMaxRad;
+  int iterCnt=0;
+  while(iterCnt<maxIter &&
+        (pp.pds.sampleNum < sampleNumMin || pp.pds.sampleNum  > sampleNumMax) )
+  {
+    iterCnt++;
+    ps.reset();
+    curRadius=(RangeMaxRad+RangeMinRad)/2.0f;
+    PoissonDiskPruning(ps, m ,curRadius,pp);
+//    qDebug("PoissonDiskPruning Iteratin (%6.3f:%5lu %6.3f:%5lu) Cur Radius %f -> %lu sample instead of %lu",RangeMinRad,RangeMinRadNum,RangeMaxRad,RangeMaxRadNum,curRadius,pp.pds.sampleNum,sampleNum);
+    if(pp.pds.sampleNum > sampleNum){
+      RangeMinRad = curRadius;
+      RangeMinRadNum = pp.pds.sampleNum;
+    }
+    if(pp.pds.sampleNum < sampleNum){
+      RangeMaxRad = curRadius;
+      RangeMaxRadNum =  pp.pds.sampleNum;
+    }
+  }
+  diskRadius = curRadius;
+}
+
+
+/// This is the main function that is used to build a poisson distribuition
+/// starting from a dense sample cloud (the montecarloMesh) by 'pruning' it.
+/// it puts all the samples in a hashed UG and randomly choose a sample
+/// and remove all the points in the sphere centered on the chosen sample
+/// 
+/// You can impose some constraint: all the vertices in the montecarloMesh 
+/// that are marked with a bool attribute called "fixed" are surely chosen 
+/// (if you also set the  preGenFlag option)
+/// 
+static void PoissonDiskPruning(VertexSampler &ps, MeshType &montecarloMesh,
+                               ScalarType diskRadius, PoissonDiskParam &pp)
+{
+  tri::RequireCompactness(montecarloMesh);
+  if(pp.randomSeed) SamplingRandomGenerator().initialize(pp.randomSeed);
+  if(pp.adaptiveRadiusFlag)
+    tri::RequirePerVertexQuality(montecarloMesh);
+  int t0 = clock();
     // spatial index of montecarlo samples - used to choose a new sample to insert
     MontecarloSHT montecarloSHT;
     InitSpatialHashTable(montecarloMesh,montecarloSHT,diskRadius,pp);
 
-    // if we are doing variable density sampling we have to prepare the random samples quality with the correct expected radii.
+    // if we are doing variable density sampling we have to prepare the handle that keeps the the random samples expected radii.
     // At this point we just assume that there is the quality values as sampled from the base mesh
+    PerVertexFloatAttribute rH = tri::Allocator<MeshType>:: template GetPerVertexAttribute<float> (montecarloMesh,"radius");
     if(pp.adaptiveRadiusFlag)
-        ComputePoissonSampleRadii(montecarloMesh, diskRadius, pp.radiusVariance, pp.invertQuality);
+        InitRadiusHandleFromQuality(montecarloMesh, rH, diskRadius, pp.radiusVariance, pp.invertQuality);
 
-    unsigned int (*p_myrandom)(unsigned int) = RandomInt;
-    std::random_shuffle(montecarloSHT.AllocatedCells.begin(),montecarloSHT.AllocatedCells.end(), p_myrandom);
+    //unsigned int (*p_myrandom)(unsigned int) = RandomInt;
+//    std::random_device rd;
+//    std::mt19937 g(rd());
+//    std::shuffle(montecarloSHT.AllocatedCells.begin(),montecarloSHT.AllocatedCells.end(), g);
+    MarsenneTwisterURBG g(montecarloSHT.AllocatedCells.size());
+    std::shuffle(montecarloSHT.AllocatedCells.begin(),montecarloSHT.AllocatedCells.end(), g);
     int t1 = clock();
-    if(pp.pds) {
-      pp.pds->montecarloSampleNum = montecarloMesh.vn;
-    }
+    pp.pds.montecarloSampleNum = montecarloMesh.vn;
+    pp.pds.sampleNum =0;
     int removedCnt=0;
-    if(pp.preGenFlag && pp.preGenMesh !=0)
+    // Initial pass for pruning the Hashed grid with the an eventual pre initialized set of samples
+    if(pp.preGenFlag)
     {
-      // Initial pass for pruning the Hashed grid with the an eventual pre initialized set of samples
-      for(VertexIterator vi =pp.preGenMesh->vert.begin(); vi!=pp.preGenMesh->vert.end();++vi)
-          if(!(*vi).IsD())
-          {
+      if(pp.preGenMesh==0)
+      {
+        typename MeshType::template PerVertexAttributeHandle<bool> fixed;
+        fixed = tri::Allocator<MeshType>:: template GetPerVertexAttribute<bool> (montecarloMesh,"fixed");
+        for(VertexIterator vi=montecarloMesh.vert.begin();vi!=montecarloMesh.vert.end();++vi)
+          if(fixed[*vi]) {
+            pp.pds.sampleNum++;
             ps.AddVert(*vi);
             removedCnt += montecarloSHT.RemoveInSphere(vi->cP(),diskRadius);
           }
+      }
+      else
+      {
+        for(VertexIterator vi =pp.preGenMesh->vert.begin(); vi!=pp.preGenMesh->vert.end();++vi)
+        {
+          ps.AddVert(*vi);
+          pp.pds.sampleNum++;
+          removedCnt += montecarloSHT.RemoveInSphere(vi->cP(),diskRadius);
+        }
+      }
       montecarloSHT.UpdateAllocatedCells();
     }
     vertex::ApproximateGeodesicDistanceFunctor<VertexType> GDF;
@@ -1424,20 +1997,18 @@ static void PoissonDiskPruning(VertexSampler &ps, MetroMesh &montecarloMesh,
               sp = getSampleFromCell(montecarloSHT.AllocatedCells[i], montecarloSHT);
 
             if(pp.adaptiveRadiusFlag)
-              currentRadius = sp->Q();
+              currentRadius = rH[sp];
 
             ps.AddVert(*sp);
+            pp.pds.sampleNum++;
             if(pp.geodesicDistanceFlag) removedCnt += montecarloSHT.RemoveInSphereNormal(sp->cP(),sp->cN(),GDF,currentRadius);
                             else        removedCnt += montecarloSHT.RemoveInSphere(sp->cP(),currentRadius);
         }
         montecarloSHT.UpdateAllocatedCells();
     }
     int t2 = clock();
-    if(pp.pds)
-    {
-      pp.pds->gridTime = t1-t0;
-      pp.pds->pruneTime = t2-t1;
-    }
+    pp.pds.gridTime = t1-t0;
+    pp.pds.pruneTime = t2-t1;
 }
 
 /** Compute a Poisson-disk sampling of the surface.
@@ -1450,7 +2021,7 @@ static void PoissonDiskPruning(VertexSampler &ps, MetroMesh &montecarloMesh,
  * IEEE Symposium on Interactive Ray Tracing, 2007,
  * 10-12 Sept. 2007, pp. 129-132.
  */
-static void HierarchicalPoissonDisk(MetroMesh &origMesh, VertexSampler &ps, MetroMesh &montecarloMesh, ScalarType diskRadius, const struct PoissonDiskParam pp=PoissonDiskParam())
+static void HierarchicalPoissonDisk(MeshType &origMesh, VertexSampler &ps, MeshType &montecarloMesh, ScalarType diskRadius, const struct PoissonDiskParam pp=PoissonDiskParam())
 {
 //  int t0=clock();
     // spatial index of montecarlo samples - used to choose a new sample to insert
@@ -1497,8 +2068,9 @@ static void HierarchicalPoissonDisk(MetroMesh &origMesh, VertexSampler &ps, Metr
     montecarloSHTVec[0].UpdateAllocatedCells();
 
   // if we are doing variable density sampling we have to prepare the random samples quality with the correct expected radii.
+    PerVertexFloatAttribute rH = tri::Allocator<MeshType>:: template GetPerVertexAttribute<float> (montecarloMesh,"radius");
     if(pp.adaptiveRadiusFlag)
-            ComputePoissonSampleRadii(montecarloMesh, diskRadius, pp.radiusVariance, pp.invertQuality);
+            InitRadiusHandleFromQuality(montecarloMesh, rH, diskRadius, pp.radiusVariance, pp.invertQuality);
 
     do
     {
@@ -1513,13 +2085,17 @@ static void HierarchicalPoissonDisk(MetroMesh &origMesh, VertexSampler &ps, Metr
             montecarloSHT.UpdateAllocatedCells();
         }
         // shuffle active cells
-        unsigned int (*p_myrandom)(unsigned int) = RandomInt;
-        std::random_shuffle(montecarloSHT.AllocatedCells.begin(),montecarloSHT.AllocatedCells.end(), p_myrandom);
+        //unsigned int (*p_myrandom)(unsigned int) = RandomInt;
+        std::random_device rd;
+//        std::mt19937 g(rd());
+//        std::shuffle(montecarloSHT.AllocatedCells.begin(),montecarloSHT.AllocatedCells.end(), g);
+        MarsenneTwisterURBG g(montecarloSHT.AllocatedCells.size());
+        std::shuffle(montecarloSHT.AllocatedCells.begin(),montecarloSHT.AllocatedCells.end(), g);
 
         // generate a sample inside C by choosing one of the contained pre-generated samples
         //////////////////////////////////////////////////////////////////////////////////////////
-    int removedCnt=montecarloSHT.hash_table.size();
-    int addedCnt=checkSHT.hash_table.size();
+        int removedCnt=montecarloSHT.hash_table.size();
+        int addedCnt=checkSHT.hash_table.size();
         for (int i = 0; i < montecarloSHT.AllocatedCells.size(); i++)
         {
             for(int j=0;j<4;j++)
@@ -1533,7 +2109,7 @@ static void HierarchicalPoissonDisk(MetroMesh &origMesh, VertexSampler &ps, Metr
             VertexPointer sp = (*hi).second;
             // vr spans between 3.0*r and r / 4.0 according to vertex quality
             ScalarType sampleRadius = diskRadius;
-            if(pp.adaptiveRadiusFlag)  sampleRadius = sp->Q();
+            if(pp.adaptiveRadiusFlag)  sampleRadius = rH[sp];
             if (checkPoissonDisk(checkSHT, sp->cP(), sampleRadius))
             {
                ps.AddVert(*sp);
@@ -1557,8 +2133,8 @@ static void HierarchicalPoissonDisk(MetroMesh &origMesh, VertexSampler &ps, Metr
     } while(level < 5);
 }
 
-//template <class MetroMesh>
-//void Sampling<MetroMesh>::SimilarFaceSampling()
+//template <class MeshType>
+//void Sampling<MeshType>::SimilarFaceSampling()
 
 // This function also generates samples outside faces if those affects faces in texture space.
 // Use correctSafePointsBaryCoords = true to map safety texels to closest point barycentric coords (on edge)
@@ -1570,17 +2146,16 @@ static void HierarchicalPoissonDisk(MetroMesh &origMesh, VertexSampler &ps, Metr
 // Else make sure to update border flags from texture space FFadj
 // vcg::tri::UpdateTopology<Mesh>::FaceFaceFromTexCoord(m);
 // vcg::tri::UpdateFlags<Mesh>::FaceBorderFromFF(m);
-static void Texture(MetroMesh & m, VertexSampler &ps, int textureWidth, int textureHeight, bool correctSafePointsBaryCoords=true)
+static void Texture(MeshType & m, VertexSampler &ps, int textureWidth, int textureHeight, bool correctSafePointsBaryCoords=true)
 {
-        FaceIterator fi;
-
+typedef Point2<ScalarType> Point2x;
         printf("Similar Triangles face sampling\n");
-        for(fi=m.face.begin(); fi != m.face.end(); fi++)
+        for(FaceIterator fi=m.face.begin(); fi != m.face.end(); fi++)
             if (!fi->IsD())
             {
-                Point2f ti[3];
+                Point2x ti[3];
                 for(int i=0;i<3;++i)
-                    ti[i]=Point2f((*fi).WT(i).U() * textureWidth - 0.5, (*fi).WT(i).V() * textureHeight - 0.5);
+                    ti[i]=Point2x((*fi).WT(i).U() * textureWidth - 0.5, (*fi).WT(i).V() * textureHeight - 0.5);
                     // - 0.5 constants are used to obtain correct texture mapping
 
                 SingleFaceRaster(*fi,  ps, ti[0],ti[1],ti[2], correctSafePointsBaryCoords);
@@ -1594,11 +2169,11 @@ class RRParam
 public:
 float offset;
 float minDiag;
-tri::FaceTmark<MetroMesh> markerFunctor;
+tri::FaceTmark<MeshType> markerFunctor;
 TriMeshGrid gM;
 };
 
-static void RegularRecursiveOffset(MetroMesh & m, std::vector<Point3f> &pvec, ScalarType offset, float minDiag)
+static void RegularRecursiveOffset(MeshType & m, std::vector<CoordType> &pvec, ScalarType offset, float minDiag)
 {
     Box3<ScalarType> bb=m.bbox;
     bb.Offset(offset*2.0);
@@ -1615,47 +2190,65 @@ static void RegularRecursiveOffset(MetroMesh & m, std::vector<Point3f> &pvec, Sc
     SubdivideAndSample(m, pvec, bb, rrp, bb.Diag());
 }
 
-static void SubdivideAndSample(MetroMesh & m, std::vector<Point3f> &pvec, const Box3<ScalarType> bb, RRParam &rrp, float curDiag)
+static void SubdivideAndSample(MeshType & m, std::vector<CoordType> &pvec, const Box3<ScalarType> bb, RRParam &rrp, float curDiag)
 {
-    Point3f startPt = bb.Center();
+  CoordType startPt = bb.Center();
 
-    ScalarType dist;
-    // Compute mesh point nearest to bb center
-    FaceType   *nearestF=0;
-    float dist_upper_bound = curDiag+rrp.offset;
-    Point3f closestPt;
-    vcg::face::PointDistanceBaseFunctor<ScalarType> PDistFunct;
-    dist=dist_upper_bound;
-    nearestF =  rrp.gM.GetClosest(PDistFunct,rrp.markerFunctor,startPt,dist_upper_bound,dist,closestPt);
+  ScalarType dist;
+  // Compute mesh point nearest to bb center
+  FaceType   *nearestF=0;
+  ScalarType dist_upper_bound = curDiag+rrp.offset;
+  CoordType closestPt;
+  vcg::face::PointDistanceBaseFunctor<ScalarType> PDistFunct;
+  dist=dist_upper_bound;
+  nearestF =  rrp.gM.GetClosest(PDistFunct,rrp.markerFunctor,startPt,dist_upper_bound,dist,closestPt);
   curDiag /=2;
-    if(dist < dist_upper_bound)
+  if(dist < dist_upper_bound)
+  {
+    if(curDiag/3 < rrp.minDiag) //store points only for the last level of recursion (?)
+    {
+      if(rrp.offset==0)
+        pvec.push_back(closestPt);
+      else
+      {
+        if(dist>rrp.offset) // points below the offset threshold cannot be displaced at the right offset distance, we can only make points nearer.
         {
-            if(curDiag/3 < rrp.minDiag) //store points only for the last level of recursion (?)
-                {
-                    if(rrp.offset==0)
-                            pvec.push_back(closestPt);
-                    else
-                        {
-                            if(dist>rrp.offset) // points below the offset threshold cannot be displaced at the right offset distance, we can only make points nearer.
-                            {
-                                Point3f delta = startPt-closestPt;
-                                pvec.push_back(closestPt+delta*(rrp.offset/dist));
-                            }
-                        }
-                }
-            if(curDiag < rrp.minDiag) return;
-            Point3f hs = (bb.max-bb.min)/2;
-            for(int i=0;i<2;i++)
-                for(int j=0;j<2;j++)
-                    for(int k=0;k<2;k++)
-                        SubdivideAndSample(m,pvec,
-                                                                            Box3f(Point3f( bb.min[0]+i*hs[0], bb.min[1]+j*hs[1], bb.min[2]+k*hs[2]),
-                                                                                        Point3f(startPt[0]+i*hs[0],startPt[1]+j*hs[1],startPt[2]+k*hs[2])),rrp,curDiag);
-
+          CoordType delta = startPt-closestPt;
+          pvec.push_back(closestPt+delta*(rrp.offset/dist));
         }
+      }
+    }
+    if(curDiag < rrp.minDiag) return;
+    CoordType hs = (bb.max-bb.min)/2;
+    for(int i=0;i<2;i++)
+      for(int j=0;j<2;j++)
+        for(int k=0;k<2;k++)
+          SubdivideAndSample(m, pvec,
+                             BoxType(CoordType( bb.min[0]+i*hs[0],  bb.min[1]+j*hs[1],  bb.min[2]+k*hs[2]),
+                                     CoordType(startPt[0]+i*hs[0], startPt[1]+j*hs[1], startPt[2]+k*hs[2]) ),
+                             rrp,curDiag
+              );
+
+  }
 }
 }; // end sampling class
 
+template <class MeshType>
+typename MeshType::ScalarType ComputePoissonDiskRadius(MeshType &origMesh, int sampleNum)
+{
+  typedef typename MeshType::ScalarType ScalarType;
+  ScalarType meshArea = Stat<MeshType>::ComputeMeshArea(origMesh);
+  // Manage approximately the PointCloud Case, use the half a area of the bbox.
+  // TODO: If you had the radius a much better approximation could be done.
+  if(meshArea ==0)
+  {
+    meshArea = (origMesh.bbox.DimX()*origMesh.bbox.DimY() +
+                origMesh.bbox.DimX()*origMesh.bbox.DimZ() +
+                origMesh.bbox.DimY()*origMesh.bbox.DimZ());
+  }
+  ScalarType diskRadius = sqrt(meshArea / (0.7 * M_PI * sampleNum)); // 0.7 is a density factor
+  return diskRadius;
+}
 
 
 
@@ -1684,25 +2277,25 @@ void MontecarloSampling(MeshType &m, // the mesh that has to be sampled
 //
 template <class MeshType>
 void PoissonSampling(MeshType &m, // the mesh that has to be sampled
-                     std::vector<Point3f> &poissonSamples, // the vector that will contain the set of points
+                     std::vector<typename MeshType::CoordType> &poissonSamples, // the vector that will contain the set of points
                      int sampleNum, // the desired number sample, if zero you must set the radius to the wanted value
-                     float &radius,  // the Poisson Disk Radius (used if sampleNum==0, setted if sampleNum!=0)
-                     float radiusVariance=1)
+                     typename MeshType::ScalarType &radius,  // the Poisson Disk Radius (used if sampleNum==0, setted if sampleNum!=0)
+                     typename MeshType::ScalarType radiusVariance=1,
+                     typename MeshType::ScalarType PruningByNumberTolerance=0.04f,
+                     unsigned int randSeed=0)
 
 {
   typedef tri::TrivialSampler<MeshType> BaseSampler;
   typedef tri::MeshSampler<MeshType> MontecarloSampler;
-  tri::RequireVFAdjacency(m);
 
   typename tri::SurfaceSampling<MeshType, BaseSampler>::PoissonDiskParam pp;
-  typename tri::SurfaceSampling<MeshType, BaseSampler>::PoissonDiskParam::Stat stat;
-  pp.pds = &stat;
   int t0=clock();
 
-  if(sampleNum>0) radius = tri::SurfaceSampling<MeshType,BaseSampler>::ComputePoissonDiskRadius(m,sampleNum);
+//  if(sampleNum>0) radius = tri::SurfaceSampling<MeshType,BaseSampler>::ComputePoissonDiskRadius(m,sampleNum);
   if(radius>0 && sampleNum==0) sampleNum = tri::SurfaceSampling<MeshType,BaseSampler>::ComputePoissonSampleNum(m,radius);
 
-  pp.pds->sampleNum = sampleNum;
+  pp.pds.sampleNum = sampleNum;
+  pp.randomSeed = randSeed;
   poissonSamples.clear();
 //  std::vector<Point3f> MontecarloSamples;
   MeshType MontecarloMesh;
@@ -1711,37 +2304,115 @@ void PoissonSampling(MeshType &m, // the mesh that has to be sampled
   MontecarloSampler mcSampler(MontecarloMesh);
   BaseSampler pdSampler(poissonSamples);
 
+  if(randSeed) tri::SurfaceSampling<MeshType,MontecarloSampler>::SamplingRandomGenerator().initialize(randSeed);
   tri::SurfaceSampling<MeshType,MontecarloSampler>::Montecarlo(m, mcSampler, std::max(10000,sampleNum*40));
   tri::UpdateBounding<MeshType>::Box(MontecarloMesh);
 //  tri::Build(MontecarloMesh, MontecarloSamples);
   int t1=clock();
-  pp.pds->montecarloTime = t1-t0;
+  pp.pds.montecarloTime = t1-t0;
 
   if(radiusVariance !=1)
   {
     pp.adaptiveRadiusFlag=true;
     pp.radiusVariance=radiusVariance;
   }
-  tri::SurfaceSampling<MeshType,BaseSampler>::PoissonDiskPruning(pdSampler, MontecarloMesh, radius,pp);
+  if(sampleNum==0) tri::SurfaceSampling<MeshType,BaseSampler>::PoissonDiskPruning(pdSampler, MontecarloMesh, radius,pp);
+  else tri::SurfaceSampling<MeshType,BaseSampler>::PoissonDiskPruningByNumber(pdSampler, MontecarloMesh, sampleNum, radius,pp,PruningByNumberTolerance);
   int t2=clock();
-  pp.pds->totalTime = t2-t0;
+  pp.pds.totalTime = t2-t0;
 }
-/// \brief Very simple wrapping for the Poisson Disk Pruning
+
+/// \brief Low level wrapper for Poisson Disk Pruning
 ///
-/// This function simply takes a mesh and a radius and returns a vector of points
+/// This function simply takes a mesh and a radius and returns a vector of vertex pointers listing the "surviving" points.
 //
 template <class MeshType>
 void PoissonPruning(MeshType &m, // the mesh that has to be pruned
-                    std::vector<Point3f> &poissonSamples, // the vector that will contain the chosen set of points
-                    float & radius)
+                    std::vector<typename MeshType::VertexPointer> &poissonSamples, // the vector that will contain the chosen set of points
+                    float radius, unsigned int randSeed=0)
 {
-    typedef tri::TrivialSampler<MeshType> BaseSampler;
-    typename tri::SurfaceSampling<MeshType, BaseSampler>::PoissonDiskParam pp;
-    typename tri::SurfaceSampling<MeshType, BaseSampler>::PoissonDiskParam::Stat stat;
-    pp.pds = &stat;
-    tri::UpdateBounding<MeshType>::Box(m);
-    BaseSampler pdSampler(poissonSamples);
-    tri::SurfaceSampling<MeshType,BaseSampler>::PoissonDiskPruning(pdSampler, m, radius,pp);
+  typedef tri::TrivialPointerSampler<MeshType> BaseSampler;
+  typename tri::SurfaceSampling<MeshType, BaseSampler>::PoissonDiskParam pp;
+  pp.randomSeed = randSeed;
+
+  tri::UpdateBounding<MeshType>::Box(m);
+  BaseSampler pdSampler;
+  tri::SurfaceSampling<MeshType,BaseSampler>::PoissonDiskPruning(pdSampler, m, radius,pp);
+  poissonSamples = pdSampler.sampleVec;
+}
+
+
+/// \brief Low level wrapper for Poisson Disk Pruning
+///
+/// This function simply takes a mesh containing a point cloud to be pruned and a radius 
+/// It returns a vector of CoordType listing the "surviving" points.
+///
+template <class MeshType>
+void PoissonPruning(MeshType &m, // the mesh that has to be pruned
+                    std::vector<typename MeshType::CoordType> &poissonSamples, // the vector that will contain the chosen set of points
+                    float radius, unsigned int randSeed=0)
+{
+  std::vector<typename MeshType::VertexPointer> poissonSamplesVP;
+  PoissonPruning(m,poissonSamplesVP,radius,randSeed);
+  poissonSamples.resize(poissonSamplesVP.size());
+  for(size_t i=0;i<poissonSamplesVP.size();++i)
+    poissonSamples[i]=poissonSamplesVP[i]->P();
+}
+
+
+
+/// \brief Very simple wrapping for the Exact Poisson Disk Pruning
+///
+/// This function simply takes a mesh and an expected number of points and returns
+/// vector of points. It performs multiple attempts with varius radii to correctly get the expected number of samples.
+/// It is obviously much slower than the other versions...
+template <class MeshType>
+void PoissonPruningExact(MeshType &m, /// the mesh that has to be pruned
+                         std::vector<typename MeshType::VertexPointer> &poissonSamples, /// the vector that will contain the chosen set of points
+                         typename MeshType::ScalarType & radius,
+                         int sampleNum,
+                         float tolerance=0.04,
+                         int maxIter=20,
+                         unsigned int randSeed=0)
+{
+  size_t sampleNumMin = int(float(sampleNum)*(1.0f-tolerance));  // the expected values range.
+  size_t sampleNumMax = int(float(sampleNum)*(1.0f+tolerance));  // e.g. any sampling in [sampleNumMin, sampleNumMax] is OK
+  float RangeMinRad = m.bbox.Diag()/10.0f;
+  float RangeMaxRad = m.bbox.Diag()/10.0f;
+  size_t RangeMinSampleNum;
+  size_t RangeMaxSampleNum;
+  std::vector<typename MeshType::VertexPointer> poissonSamplesTmp;
+
+  do
+  {
+    RangeMinRad/=2.0f;
+    PoissonPruning(m,poissonSamplesTmp,RangeMinRad,randSeed);
+    RangeMinSampleNum = poissonSamplesTmp.size();
+  } while(RangeMinSampleNum < sampleNumMin);
+
+  do
+  {
+    RangeMaxRad*=2.0f;
+    PoissonPruning(m,poissonSamplesTmp,RangeMaxRad,randSeed);
+    RangeMaxSampleNum = poissonSamplesTmp.size();
+  } while(RangeMaxSampleNum > sampleNumMax);
+
+  float curRadius;
+  int iterCnt=0;
+  while(iterCnt<maxIter &&
+        (poissonSamplesTmp.size() < sampleNumMin || poissonSamplesTmp.size() > sampleNumMax) )
+  {
+    curRadius=(RangeMaxRad+RangeMinRad)/2.0f;
+    PoissonPruning(m,poissonSamplesTmp,curRadius,randSeed);
+    //qDebug("(%6.3f:%5i %6.3f:%5i) Cur Radius %f -> %i sample instead of %i",RangeMinRad,RangeMinSampleNum,RangeMaxRad,RangeMaxSampleNum,curRadius,poissonSamplesTmp.size(),sampleNum);
+    if(poissonSamplesTmp.size() > size_t(sampleNum))
+      RangeMinRad = curRadius;
+    if(poissonSamplesTmp.size() < size_t(sampleNum))
+      RangeMaxRad = curRadius;
+  }
+
+  swap(poissonSamples,poissonSamplesTmp);
+  radius = curRadius;
 }
 } // end namespace tri
 } // end namespace vcg

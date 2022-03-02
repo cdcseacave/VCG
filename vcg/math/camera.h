@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004                                                \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -172,6 +172,25 @@ public:
 
     int cameraType;					/// Type of camera: PERSPECTIVE,ORTHO,ISOMETRIC,CAVALIERI
 
+
+
+    template <class Q>
+    static inline Camera Construct( const Camera<Q> &t)
+    {
+      Camera n;
+      n.FocalMm = t.FocalMm;
+      n.ViewportPx.Import(t.ViewportPx);
+      n.PixelSizeMm.Import(t.PixelSizeMm);
+      n.CenterPx.Import(t.CenterPx);
+      n.DistorCenterPx.Import(t.DistorCenterPx);
+      n.cameraType =t.cameraType;
+      n.k[0] = t.k[0];
+      n.k[1] = t.k[1];
+      n.k[2] = t.k[2];
+      n.k[3] = t.k[3];
+      return n;
+    }
+
     void SetOrtho( S l,S r, S b, S t,  vcg::Point2<int> viewport)
     {
         cameraType = ORTHO;
@@ -210,7 +229,7 @@ public:
     vcg::Matrix44<S> GetMatrix(S nearVal, S farVal);
 
     /// returns the frustum
-    inline void GetFrustum(S & sx, S & dx, S & bt, S & tp, S & nr);
+    inline void GetFrustum(S & sx, S & dx, S & bt, S & tp, S & nr) const;
 
     //--- Space transformation methods
 
@@ -253,7 +272,7 @@ template<class S>
 vcg::Point2<S> Camera<S>::Project(const vcg::Point3<S> & p) const
 {
     vcg::Point2<S> q =  Point2<S>(p[0],p[1]);
-    vcg::Point2<S> d =  Point2<S>(p[0],p[1]);
+//    vcg::Point2<S> d =  Point2<S>(p[0],p[1]);
 
     if(!IsOrtho())
     {
@@ -530,7 +549,7 @@ void Camera<S>::SetIsometric(S sx, S dx, S bt, S tp, S Focal, vcg::Point2<int> V
 
 /// returns the frustum
 template<class S>
-void Camera<S>:: GetFrustum( S & sx, S & dx, S & bt, S & tp, S & nr)
+void Camera<S>:: GetFrustum( S & sx, S & dx, S & bt, S & tp, S & nr) const
 {
     dx = CenterPx.X()* PixelSizeMm.X();			//scaled center
     sx = -( (S)ViewportPx.X() - CenterPx.X() ) * PixelSizeMm.X();

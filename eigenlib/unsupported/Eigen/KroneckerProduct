@@ -4,7 +4,7 @@
 //
 // This Source Code Form is subject to the terms of the Mozilla
 // Public License v. 2.0. If a copy of the MPL was not distributed
-// with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// with this file, You can obtain one at the mozilla.org home page
 
 #ifndef EIGEN_KRONECKER_PRODUCT_MODULE_H
 #define EIGEN_KRONECKER_PRODUCT_MODULE_H
@@ -12,6 +12,8 @@
 #include "../../Eigen/Core"
 
 #include "../../Eigen/src/Core/util/DisableStupidWarnings.h"
+
+#include "../../Eigen/src/SparseCore/SparseUtil.h"
 
 namespace Eigen {
 

@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004                                                \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -57,15 +57,15 @@ namespace vcg {
 			class ExporterWRL
 			{
 			public:
-				typedef typename SaveMeshType::VertexPointer VertexPointer;
+				typedef typename SaveMeshType::ConstVertexPointer VertexPointer;
 				typedef typename SaveMeshType::ScalarType ScalarType;
 				typedef typename SaveMeshType::VertexType VertexType;
 				typedef typename SaveMeshType::FaceType FaceType;
-				typedef typename SaveMeshType::VertexIterator VertexIterator;
-				typedef typename SaveMeshType::FaceIterator FaceIterator;
+				typedef typename SaveMeshType::ConstVertexIterator VertexIterator;
+				typedef typename SaveMeshType::ConstFaceIterator FaceIterator;
 				
 				///Standard call for saving a mesh
-				static int Save(SaveMeshType &m, const char * filename, const int &mask, CallBackPos */*cb=0*/)
+				static int Save(const SaveMeshType &m, const char * filename, const int &mask, CallBackPos * /*cb=0*/)
 				{					
 					FILE *fp;
 					fp = fopen(filename,"wb");
@@ -281,8 +281,10 @@ namespace vcg {
 						"  ]\n"
 						"}\n"
 						);
+					int result = 0;
+					if (ferror(fp)) result = 2;
 					fclose(fp);
-					return 0;
+					return result;
 	}
 	///Returns mask of capability one define with what are the saveable information of the format.
 	static int GetExportMaskCapability()
@@ -305,11 +307,12 @@ namespace vcg {
 		static std::vector<std::string> wrl_error_msg;
 		if(wrl_error_msg.empty())
 		{
-			wrl_error_msg.resize(2 );
-			wrl_error_msg[0]="No errors";
-			wrl_error_msg[1]="Can't open file";
+			wrl_error_msg.resize(3);
+			wrl_error_msg[0] = "No errors";
+			wrl_error_msg[1] = "Can't open file";
+			wrl_error_msg[1] = "Output Stream error";
 		}
-		if(error>1 || error<0) return "Unknown error";
+		if(error>2 || error<0) return "Unknown error";
 		else return wrl_error_msg[error].c_str();
 		}
 

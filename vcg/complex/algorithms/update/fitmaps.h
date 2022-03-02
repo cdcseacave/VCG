@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004                                                \/)\/    *
+* Copyright(C) 2004-2016                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -27,24 +27,20 @@
 #include <vcg/math/histogram.h>
 
 #include <vcg/simplex/face/jumping_pos.h>
-#include <vcg/complex/algorithms/update/flag.h>
 #include <vcg/complex/algorithms/update/normal.h>
 #include <vcg/complex/algorithms/update/curvature.h>
 #include <vcg/complex/algorithms/update/topology.h>
 #include <vcg/complex/algorithms/update/bounding.h>
 #include "vcg/complex/algorithms/update/curvature_fitting.h"
 
-#include <eigenlib/Eigen/Core>
-#include <eigenlib/Eigen/QR>
-#include <eigenlib/Eigen/LU>
-#include <eigenlib/Eigen/SVD>
+#include <Eigen/Core>
+#include <Eigen/QR>
+#include <Eigen/LU>
+#include <Eigen/SVD>
 
 #include <vcg/complex/algorithms/nring.h>
 
 #include <vcg/complex/algorithms/smooth.h>
-
-
-using namespace Eigen;
 
 namespace vcg { namespace tri {
 
@@ -188,8 +184,10 @@ public:
 
                 b[c] = n;
             }
-
-            A.svd().solve(b, &sol);
+            
+            Eigen::JacobiSVD<Eigen::MatrixXd> svd(A);
+            sol=svd.solve(b);
+//            A.svd().solve(b, &sol);
 
             vector<double> r(16);
 
@@ -436,7 +434,10 @@ public:
                     bm[c] = onedimensional[c];
                 }
 
-                Am.svd().solve(bm, &sol);
+                
+                // Am.svd().solve(bm, &sol);
+                Eigen::JacobiSVD<Eigen::MatrixXd> svd(Am);
+                sol=svd.solve(bm);
 
                 it->Q() = pow((double)sol[0],0.25);
 
