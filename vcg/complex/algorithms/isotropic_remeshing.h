@@ -1086,6 +1086,8 @@ private:
                     //					v2 = (fv1 == v1) ? fv2 : fv1;
                 }
             }
+            
+        return true;
     }
 
     //Cross Collapse pass: This pass cleans the mesh from cross vertices, keeping in mind the link conditions
