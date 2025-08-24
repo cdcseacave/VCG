@@ -1,3 +1,5 @@
+This fork is not needed anymore, as the latest VCG seems to be working and stable.
+
 The **_Visualization and Computer Graphics Library_** (VCGlib for short) is an open source, portable, and templated library written in C++, with no external dependencies, for manipulation, processing, cleaning, and simplifying triangle meshes.
 
 ![BuildExamplesLinux](https://github.com/cnr-isti-vclab/vcglib/workflows/BuildExamplesLinux/badge.svg)
